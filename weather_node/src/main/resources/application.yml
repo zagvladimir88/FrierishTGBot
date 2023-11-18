@@ -1,0 +1,4 @@
+api:
+  key: ${OPEN_API_TOKEN}
+server:
+  port: 8081

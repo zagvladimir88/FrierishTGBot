@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: "jdbc:postgresql://localhost:5435/fraerish_bot_db"
+    username: "postgres"
+    password: "1111"
+  liquibase:
+    enabled: true
+    change-log: db/changelog/db.changelog-master.yaml
+server:
+  port: 8084
+

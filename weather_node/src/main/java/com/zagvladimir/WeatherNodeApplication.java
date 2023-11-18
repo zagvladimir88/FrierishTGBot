@@ -1,0 +1,13 @@
+package com.zagvladimir;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class WeatherNodeApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(WeatherNodeApplication.class, args);
+    }
+
+}

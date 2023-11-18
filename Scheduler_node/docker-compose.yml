@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: fraerish-bd-postgres-container
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_DB: fraerish_bot_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1111
