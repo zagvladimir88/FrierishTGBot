@@ -7,7 +7,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 
-import static org.zagvladimir.model.RabbitQueue.EXCHANGE;
+import static org.zagvladimir.model.RabbitQueue.EXCHANGE_QUEUE;
 
 
 @Service
@@ -18,9 +18,9 @@ public class ConsumerService {
 
     private final ProduceService produceService;
 
-    @RabbitListener(queues = EXCHANGE)
+    @RabbitListener(queues = EXCHANGE_QUEUE)
     public void handleExchangeUpdate(SendMessage message) throws JsonProcessingException {
-        produceService.sendExchangeRate(message);
+        produceService.processMessage(message);
     }
 
 }

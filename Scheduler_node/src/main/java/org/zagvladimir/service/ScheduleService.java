@@ -11,8 +11,8 @@ import org.zagvladimir.repository.ChatRepository;
 
 import java.util.List;
 
-import static org.zagvladimir.model.RabbitQueue.EXCHANGE;
-import static org.zagvladimir.model.RabbitQueue.WEATHER;
+import static org.zagvladimir.model.RabbitQueue.EXCHANGE_QUEUE;
+import static org.zagvladimir.model.RabbitQueue.WEATHER_QUEUE;
 
 @Service
 @RequiredArgsConstructor
@@ -24,12 +24,12 @@ public class ScheduleService {
 
     @Scheduled(cron = "0 00 11 * * *")
     public void scheduledTask11() {
-        sendMessagesWithText("/exchange USD", EXCHANGE);
+        sendMessagesWithText("/exchange USD", EXCHANGE_QUEUE);
     }
 
     @Scheduled(cron = "0 30 11 * * *")
     public void scheduledTask1130() {
-        sendMessagesWithText("/w Минск", WEATHER);
+        sendMessagesWithText("/w Минск", WEATHER_QUEUE);
     }
 
     private void sendMessagesWithText(String text, String rabbitQueue) {

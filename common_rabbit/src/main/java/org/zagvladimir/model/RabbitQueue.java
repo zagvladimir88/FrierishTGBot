@@ -1,8 +1,13 @@
 package org.zagvladimir.model;
 
-public class RabbitQueue {
-    public static final String WEATHER = "WEATHER";
-    public static final String ANSWER = "ANSWER";
-    public static final String EXCHANGE = "EXCHANGE";
-    public static final String SCHEDULE = "SCHEDULE";
+public final  class RabbitQueue {
+
+    public static final String WEATHER_QUEUE = "WEATHER";
+    public static final String ANSWER_QUEUE = "ANSWER";
+    public static final String EXCHANGE_QUEUE = "EXCHANGE";
+    public static final String SCHEDULE_QUEUE = "SCHEDULE";
+
+    private RabbitQueue() {
+    }
+
 }

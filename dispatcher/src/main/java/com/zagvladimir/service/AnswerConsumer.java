@@ -6,7 +6,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 
-import static org.zagvladimir.model.RabbitQueue.ANSWER;
+import static org.zagvladimir.model.RabbitQueue.ANSWER_QUEUE;
 
 @AllArgsConstructor
 @Service
@@ -15,7 +15,7 @@ public class AnswerConsumer {
     private final FraerishCompanionBot bot;
 
 
-    @RabbitListener(queues = ANSWER)
+    @RabbitListener(queues = ANSWER_QUEUE)
     public void consume(SendMessage sendMessage) {
         bot.sendAnswerMessage(sendMessage);
     }

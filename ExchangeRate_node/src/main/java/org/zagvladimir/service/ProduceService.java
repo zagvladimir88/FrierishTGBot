@@ -11,7 +11,7 @@ import org.springframework.web.client.RestTemplate;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.zagvladimir.model.Currency;
 
-import static org.zagvladimir.model.RabbitQueue.ANSWER;
+import static org.zagvladimir.model.RabbitQueue.ANSWER_QUEUE;
 
 @Service
 @RequiredArgsConstructor
@@ -21,7 +21,7 @@ public class ProduceService {
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
-    public void sendExchangeRate(SendMessage message) throws JsonProcessingException {
+    public void processMessage(SendMessage message) throws JsonProcessingException {
         String[] messageParts = message.getText().split(" ");
 
         if (messageParts.length > 1) {
@@ -61,6 +61,6 @@ public class ProduceService {
     }
 
     private void produceAnswer(SendMessage sendMessage) {
-        rabbitTemplate.convertAndSend(ANSWER, sendMessage);
+        rabbitTemplate.convertAndSend(ANSWER_QUEUE, sendMessage);
     }
 }

@@ -7,10 +7,10 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import static org.zagvladimir.model.RabbitQueue.ANSWER;
-import static org.zagvladimir.model.RabbitQueue.EXCHANGE;
-import static org.zagvladimir.model.RabbitQueue.SCHEDULE;
-import static org.zagvladimir.model.RabbitQueue.WEATHER;
+import static org.zagvladimir.model.RabbitQueue.ANSWER_QUEUE;
+import static org.zagvladimir.model.RabbitQueue.EXCHANGE_QUEUE;
+import static org.zagvladimir.model.RabbitQueue.SCHEDULE_QUEUE;
+import static org.zagvladimir.model.RabbitQueue.WEATHER_QUEUE;
 
 
 @Configuration
@@ -23,22 +23,22 @@ public class RabbitConfiguration {
 
     @Bean
     public Queue weatherMessageQueue() {
-        return new Queue(WEATHER);
+        return new Queue(WEATHER_QUEUE);
     }
 
     @Bean
     public Queue answerMessageQueue() {
-        return new Queue(ANSWER);
+        return new Queue(ANSWER_QUEUE);
     }
 
     @Bean
     public Queue exchangeMessageQueue() {
-        return new Queue(EXCHANGE);
+        return new Queue(EXCHANGE_QUEUE);
     }
 
     @Bean
     public Queue scheduleMessageQueue() {
-        return new Queue(SCHEDULE);
+        return new Queue(SCHEDULE_QUEUE);
     }
 
 }

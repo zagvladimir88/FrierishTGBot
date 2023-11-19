@@ -22,7 +22,7 @@ public class ProduceService {
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
-    public void sendWeather(SendMessage message) throws JsonProcessingException {
+    public void processMessage(SendMessage message) throws JsonProcessingException {
         if (message != null) {
             String[] messageParts = message.getText().split(" ");
 
