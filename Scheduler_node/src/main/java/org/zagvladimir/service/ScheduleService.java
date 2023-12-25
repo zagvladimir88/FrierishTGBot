@@ -13,6 +13,7 @@ import java.util.List;
 
 import static org.zagvladimir.model.RabbitQueue.EXCHANGE_QUEUE;
 import static org.zagvladimir.model.RabbitQueue.WEATHER_QUEUE;
+import static org.zagvladimir.model.Status.ACTIVE;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +34,7 @@ public class ScheduleService {
     }
 
     private void sendMessagesWithText(String text, String rabbitQueue) {
-        List<Chat> allChats = chatRepository.findAll();
+        List<Chat> allChats = chatRepository.findAllByStatus(ACTIVE);
 
         allChats.forEach(chat -> {
             SendMessage sendMessage = new SendMessage();
