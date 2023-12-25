@@ -8,6 +8,7 @@ public final  class RabbitQueue {
     public static final String EXCHANGE_QUEUE = "EXCHANGE";
     public static final String SCHEDULE_QUEUE = "SCHEDULE";
     public static final String GOOGLE_SEARCH_QUEUE = "GOOGLE_SEARCH";
+    public static final String TEXT_CONVERSION_QUEUE = "TEXT_CONVERSION";
 
     private RabbitQueue() {
     }

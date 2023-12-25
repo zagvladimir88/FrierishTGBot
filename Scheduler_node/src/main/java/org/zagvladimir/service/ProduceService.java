@@ -1,17 +1,15 @@
 package org.zagvladimir.service;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.zagvladimir.model.Chat;
 import org.zagvladimir.repository.ChatRepository;
 
-import static org.zagvladimir.model.Status.*;
+import static org.zagvladimir.model.Status.ACTIVE;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ProduceService {
 
     private final ChatRepository chatRepository;

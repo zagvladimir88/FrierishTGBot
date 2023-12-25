@@ -11,10 +11,12 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import static com.zagvladimir.util.BotCommands.COMMAND_EXCHANGE;
 import static com.zagvladimir.util.BotCommands.COMMAND_GOOGLE_SEARCH;
 import static com.zagvladimir.util.BotCommands.COMMAND_START;
+import static com.zagvladimir.util.BotCommands.COMMAND_TEXT_CONVERSATION;
 import static com.zagvladimir.util.BotCommands.COMMAND_WEATHER;
 import static org.zagvladimir.model.RabbitQueue.EXCHANGE_QUEUE;
 import static org.zagvladimir.model.RabbitQueue.GOOGLE_SEARCH_QUEUE;
 import static org.zagvladimir.model.RabbitQueue.SCHEDULE_QUEUE;
+import static org.zagvladimir.model.RabbitQueue.TEXT_CONVERSION_QUEUE;
 import static org.zagvladimir.model.RabbitQueue.WEATHER_QUEUE;
 
 @Component
@@ -42,6 +44,7 @@ public class UpdateController {
                     case COMMAND_WEATHER -> updateProducer.produce(WEATHER_QUEUE, sendMessage);
                     case COMMAND_EXCHANGE -> updateProducer.produce(EXCHANGE_QUEUE, sendMessage);
                     case COMMAND_GOOGLE_SEARCH -> updateProducer.produce(GOOGLE_SEARCH_QUEUE, sendMessage);
+                    case COMMAND_TEXT_CONVERSATION -> updateProducer.produce(TEXT_CONVERSION_QUEUE, sendMessage);
                 }
             }
         }
