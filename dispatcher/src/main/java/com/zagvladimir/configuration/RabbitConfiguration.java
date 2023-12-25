@@ -7,14 +7,18 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import static org.zagvladimir.model.RabbitQueue.ANSWER_QUEUE;
+import static org.zagvladimir.model.RabbitQueue.ANSWER_PHOTO_QUEUE;
+import static org.zagvladimir.model.RabbitQueue.ANSWER_TEXT_QUEUE;
 import static org.zagvladimir.model.RabbitQueue.EXCHANGE_QUEUE;
+import static org.zagvladimir.model.RabbitQueue.GOOGLE_SEARCH_QUEUE;
 import static org.zagvladimir.model.RabbitQueue.SCHEDULE_QUEUE;
 import static org.zagvladimir.model.RabbitQueue.WEATHER_QUEUE;
 
 
 @Configuration
 public class RabbitConfiguration {
+
+
 
     @Bean
     public MessageConverter jsonMessageConverter() {
@@ -27,8 +31,11 @@ public class RabbitConfiguration {
     }
 
     @Bean
-    public Queue answerMessageQueue() {
-        return new Queue(ANSWER_QUEUE);
+    public Queue answerTextMessageQueue() {
+        return new Queue(ANSWER_TEXT_QUEUE);
+    }
+    @Bean
+    public Queue answerPhotoMessageQueue() {return new Queue(ANSWER_PHOTO_QUEUE);
     }
 
     @Bean
@@ -41,4 +48,8 @@ public class RabbitConfiguration {
         return new Queue(SCHEDULE_QUEUE);
     }
 
+    @Bean
+    public Queue googleSearchMessageQueue() {
+        return new Queue(GOOGLE_SEARCH_QUEUE);
+    }
 }

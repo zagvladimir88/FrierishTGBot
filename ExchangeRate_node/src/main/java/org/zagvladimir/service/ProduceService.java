@@ -11,7 +11,7 @@ import org.springframework.web.client.RestTemplate;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.zagvladimir.model.Currency;
 
-import static org.zagvladimir.model.RabbitQueue.ANSWER_QUEUE;
+import static org.zagvladimir.model.RabbitQueue.ANSWER_TEXT_QUEUE;
 
 @Service
 @RequiredArgsConstructor
@@ -61,6 +61,6 @@ public class ProduceService {
     }
 
     private void produceAnswer(SendMessage sendMessage) {
-        rabbitTemplate.convertAndSend(ANSWER_QUEUE, sendMessage);
+        rabbitTemplate.convertAndSend(ANSWER_TEXT_QUEUE, sendMessage);
     }
 }

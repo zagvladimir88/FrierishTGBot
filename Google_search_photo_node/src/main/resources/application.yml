@@ -1,0 +1,7 @@
+google:
+  api:
+    key: ${GOOGLE_API}
+  customsearch:
+    cx: ${GOOGLE_SEARCH_ENGINE_ID}
+server:
+  port: 8086

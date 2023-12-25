@@ -7,5 +7,6 @@ public class BotCommands {
     public static final String COMMAND_START = "/start";
     public static final String COMMAND_WEATHER = "/w";
     public static final String COMMAND_EXCHANGE = "/exchange";
+    public static final String COMMAND_GOOGLE_SEARCH = "/g";
 
 }
