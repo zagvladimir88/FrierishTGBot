@@ -16,7 +16,6 @@ public class AnswerConsumer {
 
     private final FraerishCompanionBot bot;
 
-
     @RabbitListener(queues = ANSWER_TEXT_QUEUE)
     public void consumeText(SendMessage sendMessage) {
         bot.sendAnswerMessage(sendMessage);

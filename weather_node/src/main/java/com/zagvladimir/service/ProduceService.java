@@ -12,6 +12,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 
+import static org.zagvladimir.model.RabbitQueue.ANSWER_TEXT_QUEUE;
+
 @Service
 @RequiredArgsConstructor
 public class ProduceService {
@@ -65,6 +67,6 @@ public class ProduceService {
     }
 
     private void produceAnswer(SendMessage sendMessage) {
-        rabbitTemplate.convertAndSend("ANSWER", sendMessage);
+        rabbitTemplate.convertAndSend(ANSWER_TEXT_QUEUE, sendMessage);
     }
 }
