@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zagvladimir.model.SearchResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -15,8 +16,8 @@ import org.telegram.telegrambots.meta.api.objects.media.InputMedia;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.zagvladimir.model.RabbitQueue.ANSWER_PHOTO_QUEUE;
 import static org.zagvladimir.model.RabbitQueue.ANSWER_TEXT_QUEUE;
@@ -41,38 +42,42 @@ public class ProduceService {
             return;
         }
 
-        String[] messageParts = message.getText().split(" ");
+        String[] messageParts = StringUtils.split(message.getText(), ' ');
 
         if (messageParts.length > 1) {
             String url = buildApiUrl(messageParts[1]);
+
             try {
-                ResponseEntity<String> responseEntity = restTemplate.getForEntity(url, String.class);
-                SearchResult searchResult = objectMapper.readValue(responseEntity.getBody(), SearchResult.class);
+                SearchResult searchResult = fetchSearchResult(url);
                 SendMediaGroup sendMediaGroup = createGroupPhotoMessage(message, searchResult);
                 producePhotoAnswer(sendMediaGroup);
             } catch (IOException ex) {
-                log.error("Error: {}", ex.getMessage());
                 handlePhotoNotFound(message);
             }
-        } else handlePhotoNotFound(message);
+        } else {
+            handlePhotoNotFound(message);
+        }
+    }
+
+    private SearchResult fetchSearchResult(String url) throws IOException {
+        ResponseEntity<String> responseEntity = restTemplate.getForEntity(url, String.class);
+        return objectMapper.readValue(responseEntity.getBody(), SearchResult.class);
     }
 
     private SendMediaGroup createGroupPhotoMessage(SendMessage message, SearchResult searchResult) {
-        List<InputMedia> photoList = new ArrayList<>();
+        List<InputMedia> photoList = searchResult.getItems()
+                .stream()
+                .map(item -> new InputMediaPhoto(item.getLink()))
+                .collect(Collectors.toList());
 
-        for (int i = 1; i <= 3 && i < searchResult.getItems().size(); i++) {
-            InputMediaPhoto photo = new InputMediaPhoto(searchResult.getItems().get(i).getLink());
-            photoList.add(photo);
-        }
-
-        SendMediaGroup sendMediaGroup = new SendMediaGroup();
-        sendMediaGroup.setMedias(photoList);
-        sendMediaGroup.setChatId(message.getChatId());
-        return sendMediaGroup;
+        return SendMediaGroup.builder()
+                .medias(photoList)
+                .chatId(message.getChatId())
+                .build();
     }
 
     private String buildApiUrl(String query) {
-        return String.format("https://www.googleapis.com/customsearch/v1?key=%s&cx=%s&q=%s&searchType=image",
+        return String.format("https://www.googleapis.com/customsearch/v1?key=%s&cx=%s&q=%s&searchType=image&num=3",
                 apiKey, searchEngineId, query);
     }
 

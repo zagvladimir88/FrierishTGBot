@@ -14,6 +14,8 @@
         <module>ExchangeRate_node</module>
         <module>Scheduler_node</module>
         <module>common_rabbit</module>
+        <module>Text_conversion_node</module>
+        <module>Google_search_photo_node</module>
     </modules>
 
     <properties>
@@ -22,4 +24,4 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-</project>
+</project> 
