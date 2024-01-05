@@ -17,8 +17,8 @@ import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.*;
 import static org.zagvladimir.model.RabbitQueue.ANSWER_PHOTO_QUEUE;
 import static org.zagvladimir.model.RabbitQueue.ANSWER_TEXT_QUEUE;
 
@@ -33,6 +33,8 @@ public class ProduceService {
     @Value("${google.customsearch.cx}")
     private String searchEngineId;
 
+    private static final String GOOGLE_COMMAND = "/g";
+
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
@@ -42,10 +44,10 @@ public class ProduceService {
             return;
         }
 
-        String[] messageParts = StringUtils.split(message.getText(), ' ');
+        String queryWithoutCommand = StringUtils.difference(GOOGLE_COMMAND, message.getText());
 
-        if (messageParts.length > 1) {
-            String url = buildApiUrl(messageParts[1]);
+        if (StringUtils.isNotEmpty(queryWithoutCommand)) {
+            String url = buildApiUrl(queryWithoutCommand);
 
             try {
                 SearchResult searchResult = fetchSearchResult(url);
@@ -68,7 +70,7 @@ public class ProduceService {
         List<InputMedia> photoList = searchResult.getItems()
                 .stream()
                 .map(item -> new InputMediaPhoto(item.getLink()))
-                .collect(Collectors.toList());
+                .collect(toList());
 
         return SendMediaGroup.builder()
                 .medias(photoList)
@@ -78,7 +80,7 @@ public class ProduceService {
 
     private String buildApiUrl(String query) {
         return String.format("https://www.googleapis.com/customsearch/v1?key=%s&cx=%s&q=%s&searchType=image&num=3",
-                apiKey, searchEngineId, query);
+                apiKey, searchEngineId, query.trim());
     }
 
     private void handlePhotoNotFound(SendMessage message) {
