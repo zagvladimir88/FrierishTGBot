@@ -5,6 +5,9 @@ import com.zagvladimir.fraerish.digest.ChatRepository;
 import com.zagvladimir.fraerish.digest.ChatSettings;
 import com.zagvladimir.fraerish.stats.MessageStatsRepository;
 import com.zagvladimir.fraerish.stats.UserActivity;
+import com.zagvladimir.fraerish.story.StoryGame;
+import com.zagvladimir.fraerish.story.StoryRepository;
+import com.zagvladimir.fraerish.story.StoryScore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,12 +37,14 @@ class FraerishBotApplicationTest {
     private ChatRepository chatRepository;
     @Autowired
     private MessageStatsRepository messageStatsRepository;
+    @Autowired
+    private StoryRepository storyRepository;
 
     @Test
     void registersEveryCommandHandler() {
         assertThat(handlers)
                 .extracting(CommandHandler::command)
-                .containsExactly("/start", "/w", "/e", "/g", "/c", "/pick", "/poll", "/top", "/s", "/stop");
+                .containsExactly("/start", "/w", "/e", "/g", "/c", "/pick", "/poll", "/top", "/story", "/answer", "/story_top", "/story_options", "/s", "/stop");
     }
 
     @Test
@@ -114,6 +119,35 @@ class FraerishBotApplicationTest {
         assertThat(messageStatsRepository.total(group, TODAY.minusDays(6), TODAY)).isEqualTo(5L);
         assertThat(messageStatsRepository.chatsWithActivity(TODAY.minusDays(6), TODAY)).contains(group);
         assertThat(messageStatsRepository.top(group, TODAY.minusDays(30), TODAY, 1)).containsExactly(new UserActivity("Игорь", 3));
+    }
+
+    @Test
+    void storesStoryGamesVotesScoresAndOptions() {
+        long group = -700L;
+        List<String> options = List.of("Пейзаж", "Селфи", "Рилс");
+        storyRepository.createGame(group, 10, "poll-a", options);
+        StoryGame first = storyRepository.findOpenGame(group).orElseThrow();
+        storyRepository.saveVote(first.id(), 1L, "Игорь", 0);
+        storyRepository.saveVote(first.id(), 1L, "Игорь", 1);
+        storyRepository.saveVote(first.id(), 2L, "Аня", 2);
+        storyRepository.saveVote(first.id(), 3L, "Передумал", 1);
+        storyRepository.removeVote(first.id(), 3L);
+        storyRepository.closeGame(first.id(), 1);
+        storyRepository.createGame(group, 11, "poll-b", options);
+        StoryGame second = storyRepository.findOpenGame(group).orElseThrow();
+        storyRepository.saveVote(second.id(), 2L, "Аня", 2);
+        storyRepository.closeGame(second.id(), 2);
+
+        assertThat(first.options()).isEqualTo(options);
+        assertThat(storyRepository.findByPollId("poll-a")).map(StoryGame::answerIndex).contains(1);
+        assertThat(storyRepository.findOpenGame(group)).isEmpty();
+        assertThat(storyRepository.votersFor(first.id(), 1)).containsExactly("Игорь");
+        assertThat(storyRepository.leaderboard(group, 10)).containsExactly(new StoryScore("Игорь", 1, 1), new StoryScore("Аня", 1, 2));
+
+        assertThat(storyRepository.options(group)).isEmpty();
+        storyRepository.saveOptions(group, List.of("Кот", "Пёс"));
+        storyRepository.saveOptions(group, List.of("Кот", "Пёс", "Рыба"));
+        assertThat(storyRepository.options(group)).contains(List.of("Кот", "Пёс", "Рыба"));
     }
 
     private void enabledAt(long chatId, LocalTime time) {

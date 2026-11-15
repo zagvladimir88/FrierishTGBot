@@ -7,6 +7,8 @@ import com.zagvladimir.fraerish.command.CommandRequest;
 import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsController;
 import com.zagvladimir.fraerish.stats.ChatStats;
+import com.zagvladimir.fraerish.story.StoryService;
+import org.telegram.telegrambots.meta.api.objects.polls.PollAnswer;
 import com.zagvladimir.fraerish.video.VideoLinkListener;
 import org.junit.jupiter.api.Test;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -45,6 +47,7 @@ class UpdateDispatcherTest {
     private final SettingsController settingsController = mock(SettingsController.class);
     private final VideoLinkListener videoLinkListener = mock(VideoLinkListener.class);
     private final ChatStats chatStats = mock(ChatStats.class);
+    private final StoryService storyService = mock(StoryService.class);
     private final UpdateDispatcher dispatcher = new UpdateDispatcher(
             List.of(
                     new StubHandler("/w", List.of("/weather"), false, request -> {
@@ -61,8 +64,24 @@ class UpdateDispatcherTest {
             settingsController,
             videoLinkListener,
             chatStats,
+            storyService,
             sender,
             new BotProperties("token", BOT_NAME));
+
+    @Test
+    void passesPollAnswersOfPeopleToStoryGame() {
+        Update vote = new Update();
+        User voter = new User(USER_ID, "Игорь", false);
+        vote.setPollAnswer(new PollAnswer("poll-1", voter, List.of(2), null, null));
+        Update anonymousAdminVote = new Update();
+        anonymousAdminVote.setPollAnswer(new PollAnswer("poll-1", null, List.of(1), new Chat(GROUP_ID, "supergroup"), null));
+
+        dispatcher.consume(vote);
+        dispatcher.consume(anonymousAdminVote);
+
+        verify(storyService).vote("poll-1", USER_ID, "Игорь", List.of(2));
+        verifyNoMoreInteractions(storyService);
+    }
 
     @Test
     void countsGroupMessagesOfPeopleOnly() {

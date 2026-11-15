@@ -13,6 +13,9 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
 import org.telegram.telegrambots.meta.api.methods.polls.SendPoll;
+import org.telegram.telegrambots.meta.api.methods.polls.StopPoll;
+import org.telegram.telegrambots.meta.api.objects.message.Message;
+import org.telegram.telegrambots.meta.api.objects.polls.Poll;
 import org.telegram.telegrambots.meta.api.objects.polls.input.InputPollOption;
 import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
 import org.telegram.telegrambots.meta.api.objects.ApiResponse;
@@ -30,6 +33,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 class BotSenderTest {
 
@@ -132,6 +137,29 @@ class BotSenderTest {
         assertThat(captor.getValue().getQuestion()).isEqualTo("Куда идём?");
         assertThat(captor.getValue().getOptions()).extracting(InputPollOption::getText).containsExactly("Бар", "Кино");
         assertThat(captor.getValue().getIsAnonymous()).isFalse();
+    }
+
+    @Test
+    void sendsTrackedPollAndReturnsItsIds() throws TelegramApiException {
+        Message sent = new Message();
+        sent.setMessageId(77);
+        Poll poll = new Poll();
+        poll.setId("poll-1");
+        sent.setPoll(poll);
+        when(telegramClient.execute(any(SendPoll.class))).thenReturn(sent);
+
+        assertThat(sender.sendTrackedPoll(CHAT_ID, new BotReply.Poll("Что?", List.of("А", "Б")))).contains(new SentPoll(77, "poll-1"));
+    }
+
+    @Test
+    void closesPollAndIgnoresNothingToSend() throws TelegramApiException {
+        sender.stopPoll(CHAT_ID, 77);
+        assertThat(sender.send(CHAT_ID, BotReply.none())).isEqualTo(SendResult.SENT);
+
+        ArgumentCaptor<StopPoll> captor = ArgumentCaptor.forClass(StopPoll.class);
+        verify(telegramClient).execute(captor.capture());
+        assertThat(captor.getValue().getMessageId()).isEqualTo(77);
+        verifyNoMoreInteractions(telegramClient);
     }
 
     @Test

@@ -12,6 +12,13 @@ public sealed interface BotReply {
         return new Photos(List.copyOf(photos));
     }
 
+    static BotReply none() {
+        return new None();
+    }
+
+    record None() implements BotReply {
+    }
+
     record Text(String text) implements BotReply {
     }
 

@@ -8,6 +8,8 @@ import com.zagvladimir.fraerish.command.ParsedCommand;
 import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsController;
 import com.zagvladimir.fraerish.stats.ChatStats;
+import com.zagvladimir.fraerish.story.StoryService;
+import org.telegram.telegrambots.meta.api.objects.polls.PollAnswer;
 import com.zagvladimir.fraerish.video.VideoLinkListener;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -36,11 +38,12 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
     private final SettingsController settingsController;
     private final VideoLinkListener videoLinkListener;
     private final ChatStats chatStats;
+    private final StoryService storyService;
     private final BotSender sender;
     private final BotProperties properties;
 
     public UpdateDispatcher(List<CommandHandler> handlers, SettingsController settingsController,
-                            VideoLinkListener videoLinkListener, ChatStats chatStats,
+                            VideoLinkListener videoLinkListener, ChatStats chatStats, StoryService storyService,
                             BotSender sender, BotProperties properties) {
         this.handlers = handlers.stream()
                 .flatMap(handler -> Stream.concat(Stream.of(handler.command()), handler.aliases().stream())
@@ -49,6 +52,7 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
         this.settingsController = settingsController;
         this.videoLinkListener = videoLinkListener;
         this.chatStats = chatStats;
+        this.storyService = storyService;
         this.sender = sender;
         this.properties = properties;
     }
@@ -61,6 +65,20 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
             onMessage(update.getMessage(), false);
         } else if (update.hasEditedMessage()) {
             onMessage(update.getEditedMessage(), true);
+        } else if (update.hasPollAnswer()) {
+            onPollAnswer(update.getPollAnswer());
+        }
+    }
+
+    private void onPollAnswer(PollAnswer answer) {
+        User voter = answer.getUser();
+        if (voter == null) {
+            return;
+        }
+        try {
+            storyService.vote(answer.getPollId(), voter.getId(), Users.displayName(voter), answer.getOptionIds());
+        } catch (RuntimeException e) {
+            log.error("Failed to record vote in poll {}", answer.getPollId(), e);
         }
     }
 
@@ -98,17 +116,7 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
         if (author == null || Boolean.TRUE.equals(author.getIsBot()) || !isGroup(message.getChat())) {
             return;
         }
-        chatStats.countMessage(message.getChatId(), author.getId(), displayName(author));
-    }
-
-    private static String displayName(User user) {
-        String name = Stream.of(user.getFirstName(), user.getLastName())
-                .filter(part -> part != null && !part.isBlank())
-                .collect(Collectors.joining(" "));
-        if (!name.isBlank()) {
-            return name;
-        }
-        return user.getUserName() != null ? user.getUserName() : "id" + user.getId();
+        chatStats.countMessage(message.getChatId(), author.getId(), Users.displayName(author));
     }
 
     private boolean onMembershipChange(Message message) {
