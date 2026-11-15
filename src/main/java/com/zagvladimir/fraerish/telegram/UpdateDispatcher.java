@@ -20,9 +20,9 @@ import org.telegram.telegrambots.meta.api.objects.message.Message;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Component
@@ -37,7 +37,10 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
 
     public UpdateDispatcher(List<CommandHandler> handlers, SettingsController settingsController,
                             BotSender sender, BotProperties properties) {
-        this.handlers = handlers.stream().collect(Collectors.toUnmodifiableMap(CommandHandler::command, Function.identity()));
+        this.handlers = handlers.stream()
+                .flatMap(handler -> Stream.concat(Stream.of(handler.command()), handler.aliases().stream())
+                        .map(name -> Map.entry(name, handler)))
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
         this.settingsController = settingsController;
         this.sender = sender;
         this.properties = properties;
@@ -65,8 +68,15 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
         Optional<ParsedCommand> command = ParsedCommand.parse(message.getText(), properties.name());
         if (command.isPresent()) {
             runCommand(context, command.get(), edited);
-        } else if (!edited && isReplyToBot(message)) {
+            return;
+        }
+        if (edited || message.getText().startsWith("/")) {
+            return;
+        }
+        if (isReplyToBot(message)) {
             reply(context, () -> settingsController.onReply(context, message.getReplyToMessage().getText(), message.getText()));
+        } else {
+            reply(context, () -> settingsController.onText(context, message.getText()));
         }
     }
 

@@ -21,6 +21,7 @@ public class SettingsController {
     private final SettingsService settingsService;
     private final SettingsMenu settingsMenu;
     private final SettingsAccess settingsAccess;
+    private final PendingInputs pendingInputs;
 
     public BotReply onBotAdded(long chatId) {
         return settingsMenu.main(settingsService.settings(chatId), WELCOME);
@@ -42,8 +43,8 @@ public class SettingsController {
             case SettingsMenu.ENABLE -> CallbackOutcome.edit(settingsMenu.main(settingsService.setEnabled(chatId, true)), "Сводка включена");
             case SettingsMenu.DISABLE -> CallbackOutcome.edit(settingsMenu.main(settingsService.setEnabled(chatId, false)), "Сводка выключена");
             case SettingsMenu.TIME -> CallbackOutcome.edit(settingsMenu.hours());
-            case SettingsMenu.CITIES -> CallbackOutcome.message(settingsMenu.citiesPrompt());
-            case SettingsMenu.CURRENCIES -> CallbackOutcome.message(settingsMenu.currenciesPrompt());
+            case SettingsMenu.CITIES -> askFor(context, SettingsMenu.PromptKind.CITIES, settingsMenu.citiesPrompt());
+            case SettingsMenu.CURRENCIES -> askFor(context, SettingsMenu.PromptKind.CURRENCIES, settingsMenu.currenciesPrompt());
             case SettingsMenu.RATES -> CallbackOutcome.edit(settingsMenu.main(settingsService.toggleRates(chatId)));
             case SettingsMenu.WEATHER -> CallbackOutcome.edit(settingsMenu.main(settingsService.toggleWeather(chatId)));
             case SettingsMenu.MAIN -> CallbackOutcome.edit(settingsMenu.main(settingsService.settings(chatId)));
@@ -53,15 +54,29 @@ public class SettingsController {
 
     public Optional<BotReply> onReply(ChatContext context, String promptText, String text) {
         return settingsMenu.promptKind(promptText).map(kind -> {
-            if (!settingsAccess.canConfigure(context)) {
-                return BotReply.text(SettingsAccess.ADMINS_ONLY);
-            }
-            ListUpdate update = switch (kind) {
-                case CITIES -> settingsService.updateCities(context.chatId(), text);
-                case CURRENCIES -> settingsService.updateCurrencies(context.chatId(), text);
-            };
-            return settingsMenu.main(update.settings(), update.message());
+            pendingInputs.take(context);
+            return apply(context, kind, text);
         });
+    }
+
+    public Optional<BotReply> onText(ChatContext context, String text) {
+        return pendingInputs.take(context).map(kind -> apply(context, kind, text));
+    }
+
+    private CallbackOutcome askFor(ChatContext context, SettingsMenu.PromptKind kind, BotReply.Prompt prompt) {
+        pendingInputs.await(context, kind);
+        return CallbackOutcome.message(prompt);
+    }
+
+    private BotReply apply(ChatContext context, SettingsMenu.PromptKind kind, String text) {
+        if (!settingsAccess.canConfigure(context)) {
+            return BotReply.text(SettingsAccess.ADMINS_ONLY);
+        }
+        ListUpdate update = switch (kind) {
+            case CITIES -> settingsService.updateCities(context.chatId(), text);
+            case CURRENCIES -> settingsService.updateCurrencies(context.chatId(), text);
+        };
+        return settingsMenu.main(update.settings(), update.message());
     }
 
     private CallbackOutcome timeSelection(long chatId, String data) {

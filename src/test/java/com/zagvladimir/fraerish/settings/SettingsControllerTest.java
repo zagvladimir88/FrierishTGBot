@@ -7,9 +7,12 @@ import com.zagvladimir.fraerish.digest.DigestProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,11 +33,31 @@ class SettingsControllerTest {
     private final SettingsAccess settingsAccess = mock(SettingsAccess.class);
     private final SettingsMenu settingsMenu = new SettingsMenu(
             new DigestProperties(ZoneId.of("Europe/Minsk"), "по Минску", Duration.ofMinutes(30), 5, 5));
-    private final SettingsController controller = new SettingsController(settingsService, settingsMenu, settingsAccess);
+    private final PendingInputs pendingInputs = new PendingInputs(Clock.fixed(Instant.parse("2026-11-16T08:00:00Z"), ZoneOffset.UTC));
+    private final SettingsController controller = new SettingsController(settingsService, settingsMenu, settingsAccess, pendingInputs);
 
     @BeforeEach
     void memberIsAdmin() {
         when(settingsAccess.canConfigure(any())).thenReturn(true);
+    }
+
+    @Test
+    void takesCitiesFromNextMessageOfUserWhoPressedButton() {
+        BotReply.Prompt prompt = (BotReply.Prompt) controller.onButton(GROUP_MEMBER, SettingsMenu.CITIES).message();
+        when(settingsService.updateCities(CHAT_ID, "Минск, Брест, Гродно")).thenReturn(new ListUpdate("Сохранил города: Минск, Брест, Гродно", ENABLED));
+
+        assertThat(prompt.text()).startsWith("🏙 Напишите города через запятую следующим сообщением.");
+        assertThat(controller.onText(new ChatContext(CHAT_ID, 6L, true, false), "а я просто пишу")).isEmpty();
+        BotReply reply = controller.onText(GROUP_MEMBER, "Минск, Брест, Гродно").orElseThrow();
+
+        assertThat(((BotReply.Menu) reply).text()).startsWith("Сохранил города: Минск, Брест, Гродно");
+        assertThat(controller.onText(GROUP_MEMBER, "ещё сообщение")).isEmpty();
+    }
+
+    @Test
+    void ignoresPlainTextWhenNothingWasAsked() {
+        assertThat(controller.onText(GROUP_MEMBER, "Минск")).isEmpty();
+        verifyNoInteractions(settingsService);
     }
 
     @Test

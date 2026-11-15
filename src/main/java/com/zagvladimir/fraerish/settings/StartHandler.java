@@ -5,8 +5,10 @@ import com.zagvladimir.fraerish.command.CommandHandler;
 import com.zagvladimir.fraerish.command.CommandRequest;
 import com.zagvladimir.fraerish.digest.ChatSettings;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+@Order(1)
 @Component
 @RequiredArgsConstructor
 public class StartHandler implements CommandHandler {
@@ -16,11 +18,13 @@ public class StartHandler implements CommandHandler {
 
             Команды:
             /w Минск, Брест — погода сейчас и на ближайшие часы
-            /exchange USD, EUR, BTC — курсы НБРБ и криптовалют
+            /e USD, EUR, BTC — курсы НБРБ и криптовалют
             /g котики — поиск картинок
             /c ghbdtn — исправление неправильной раскладки
-            /settings — настройки ежедневной сводки
-            /stop — отключить сводку""";
+            /s — настройки ежедневной сводки
+            /stop — отключить сводку
+
+            /w и /e без параметров покажут города и валюты из настроек сводки.""";
 
     private final SettingsService settingsService;
     private final SettingsMenu settingsMenu;
@@ -28,6 +32,11 @@ public class StartHandler implements CommandHandler {
     @Override
     public String command() {
         return "/start";
+    }
+
+    @Override
+    public String description() {
+        return "Справка и меню ежедневной сводки";
     }
 
     @Override
