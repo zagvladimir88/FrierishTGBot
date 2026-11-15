@@ -67,7 +67,7 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
         ChatContext context = context(message);
         Optional<ParsedCommand> command = ParsedCommand.parse(message.getText(), properties.name());
         if (command.isPresent()) {
-            runCommand(context, command.get(), edited);
+            runCommand(new CommandRequest(context, command.get().args(), repliedText(message)), command.get().name(), edited);
             return;
         }
         if (edited || message.getText().startsWith("/")) {
@@ -94,12 +94,20 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
         return false;
     }
 
-    private void runCommand(ChatContext context, ParsedCommand command, boolean edited) {
-        CommandHandler handler = handlers.get(command.name());
+    private void runCommand(CommandRequest request, String commandName, boolean edited) {
+        CommandHandler handler = handlers.get(commandName);
         if (handler == null || edited && !handler.acceptsEditedMessages()) {
             return;
         }
-        reply(context, () -> Optional.of(handler.handle(new CommandRequest(context, command.args()))));
+        reply(request.context(), () -> Optional.of(handler.handle(request)));
+    }
+
+    private static String repliedText(Message message) {
+        Message original = message.getReplyToMessage();
+        if (original == null) {
+            return null;
+        }
+        return original.hasText() ? original.getText() : original.getCaption();
     }
 
     private void reply(ChatContext context, Supplier<Optional<BotReply>> action) {

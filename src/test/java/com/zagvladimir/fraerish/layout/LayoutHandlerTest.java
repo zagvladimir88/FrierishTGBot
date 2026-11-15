@@ -1,6 +1,7 @@
 package com.zagvladimir.fraerish.layout;
 
 import com.zagvladimir.fraerish.command.BotReply;
+import com.zagvladimir.fraerish.command.ChatContext;
 import com.zagvladimir.fraerish.command.CommandRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -30,6 +31,19 @@ class LayoutHandlerTest {
     @Test
     void asksForTextWhenArgumentsAreMissing() {
         assertThat(handler.handle(new CommandRequest(1, ""))).isEqualTo(BotReply.text(LayoutHandler.USAGE));
+        assertThat(handler.handle(new CommandRequest(ChatContext.privateChat(1), "", "  "))).isEqualTo(BotReply.text(LayoutHandler.USAGE));
+    }
+
+    @Test
+    void convertsRepliedMessageWhenCommandHasNoText() {
+        assertThat(handler.handle(new CommandRequest(ChatContext.privateChat(1), "", "ghbdtn? rfr ltkf&")))
+                .isEqualTo(BotReply.text("привет, как дела?"));
+    }
+
+    @Test
+    void prefersCommandTextOverRepliedMessage() {
+        assertThat(handler.handle(new CommandRequest(ChatContext.privateChat(1), "ckjdj", "ghbdtn")))
+                .isEqualTo(BotReply.text("слово"));
     }
 
     @Test
