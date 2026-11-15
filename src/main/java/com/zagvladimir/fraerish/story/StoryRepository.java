@@ -9,12 +9,15 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
 public class StoryRepository {
 
+    static final int NO_ANSWER = -1;
     private static final String OPTION_SEPARATOR = "\n";
 
     private final JdbcClient jdbcClient;
@@ -81,7 +84,7 @@ public class StoryRepository {
                                SUM(CASE WHEN v.option_index = g.answer_index THEN 1 ELSE 0 END) AS correct,
                                COUNT(*) AS played
                         FROM story_votes v JOIN story_games g ON g.id = v.game_id
-                        WHERE g.chat_id = :chatId AND g.answer_index IS NOT NULL
+                        WHERE g.chat_id = :chatId AND g.answer_index >= 0
                         GROUP BY v.user_id
                         ORDER BY correct DESC, played, name
                         LIMIT :limit""")
@@ -108,6 +111,43 @@ public class StoryRepository {
                 .update();
     }
 
+    public int countVotes(long gameId) {
+        return jdbcClient.sql("SELECT COUNT(*) FROM story_votes WHERE game_id = :gameId")
+                .param("gameId", gameId)
+                .query(Integer.class)
+                .single();
+    }
+
+    public void startConfirmation(long gameId, int confirmMessageId, int voters) {
+        jdbcClient.sql("UPDATE story_games SET confirm_message_id = :messageId, voters_snapshot = :voters WHERE id = :id")
+                .param("messageId", confirmMessageId)
+                .param("voters", voters)
+                .param("id", gameId)
+                .update();
+    }
+
+    @Transactional
+    public void saveConfirmation(long gameId, long userId, int optionIndex) {
+        jdbcClient.sql("DELETE FROM story_confirmations WHERE game_id = :gameId AND user_id = :userId")
+                .param("gameId", gameId)
+                .param("userId", userId)
+                .update();
+        jdbcClient.sql("INSERT INTO story_confirmations (game_id, user_id, option_index) VALUES (:gameId, :userId, :option)")
+                .param("gameId", gameId)
+                .param("userId", userId)
+                .param("option", optionIndex)
+                .update();
+    }
+
+    public Map<Integer, Long> confirmationCounts(long gameId) {
+        return jdbcClient.sql("SELECT option_index, COUNT(*) AS total FROM story_confirmations WHERE game_id = :gameId GROUP BY option_index")
+                .param("gameId", gameId)
+                .query((row, number) -> Map.entry(row.getInt("option_index"), row.getLong("total")))
+                .list()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
     private static StoryGame map(ResultSet row, int number) throws SQLException {
         return new StoryGame(
                 row.getLong("id"),
@@ -115,7 +155,9 @@ public class StoryRepository {
                 row.getInt("message_id"),
                 row.getString("poll_id"),
                 split(row.getString("options")),
-                row.getObject("answer_index", Integer.class));
+                row.getObject("answer_index", Integer.class),
+                row.getObject("confirm_message_id", Integer.class),
+                row.getObject("voters_snapshot", Integer.class));
     }
 
     private static List<String> split(String options) {

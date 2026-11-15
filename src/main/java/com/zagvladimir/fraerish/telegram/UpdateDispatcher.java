@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
 
     static final String SERVICE_UNAVAILABLE = "Сервис временно недоступен, попробуйте позже";
+    private static final String STORY_BUTTON_PREFIX = "st:";
 
     private final Map<String, CommandHandler> handlers;
     private final SettingsController settingsController;
@@ -167,7 +168,10 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
         ChatContext context = new ChatContext(message.getChatId(), query.getFrom().getId(), isGroup(message.getChat()), false);
         CallbackOutcome outcome;
         try {
-            outcome = settingsController.onButton(context, query.getData());
+            String data = query.getData();
+            outcome = data != null && data.startsWith(STORY_BUTTON_PREFIX)
+                    ? storyService.onButton(context, data)
+                    : settingsController.onButton(context, data);
         } catch (RuntimeException e) {
             log.error("Failed to handle button {} in chat {}", query.getData(), context.chatId(), e);
             outcome = CallbackOutcome.toast(SERVICE_UNAVAILABLE);

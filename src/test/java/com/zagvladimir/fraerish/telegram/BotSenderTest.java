@@ -148,7 +148,33 @@ class BotSenderTest {
         sent.setPoll(poll);
         when(telegramClient.execute(any(SendPoll.class))).thenReturn(sent);
 
-        assertThat(sender.sendTrackedPoll(CHAT_ID, new BotReply.Poll("Что?", List.of("А", "Б")))).contains(new SentPoll(77, "poll-1"));
+        List<List<BotReply.Button>> button = List.of(List.of(new BotReply.Button("🙋 Все проголосовали", "st:done")));
+
+        assertThat(sender.sendTrackedPoll(CHAT_ID, new BotReply.Poll("Что?", List.of("А", "Б")), button)).contains(new SentPoll(77, "poll-1"));
+
+        ArgumentCaptor<SendPoll> captor = ArgumentCaptor.forClass(SendPoll.class);
+        verify(telegramClient).execute(captor.capture());
+        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) captor.getValue().getReplyMarkup();
+        assertThat(markup.getKeyboard().getFirst()).extracting(InlineKeyboardButton::getCallbackData).containsExactly("st:done");
+    }
+
+    @Test
+    void sendsMenuAndReturnsItsMessageId() throws TelegramApiException {
+        Message sent = new Message();
+        sent.setMessageId(900);
+        when(telegramClient.execute(any(SendMessage.class))).thenReturn(sent);
+
+        assertThat(sender.sendTrackedMenu(CHAT_ID, new BotReply.Menu("Что было?", List.of(List.of(new BotReply.Button("А", "st:c:0"))))))
+                .contains(900);
+    }
+
+    @Test
+    void removesButtonsWhenEditingToMenuWithoutKeyboard() throws TelegramApiException {
+        sender.editMenu(CHAT_ID, 900, new BotReply.Menu("✅ Итог", List.of()));
+
+        ArgumentCaptor<EditMessageText> captor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(captor.capture());
+        assertThat(captor.getValue().getReplyMarkup()).isNull();
     }
 
     @Test

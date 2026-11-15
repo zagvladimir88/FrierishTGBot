@@ -67,6 +67,15 @@ public class MessageStatsRepository {
                 .single();
     }
 
+    public int activeUsers(long chatId, LocalDate from, LocalDate to) {
+        return jdbcClient.sql("SELECT COUNT(DISTINCT user_id) FROM message_stats WHERE chat_id = :chatId AND stat_day BETWEEN :from AND :to")
+                .param("chatId", chatId)
+                .param("from", from)
+                .param("to", to)
+                .query(Integer.class)
+                .single();
+    }
+
     public List<Long> chatsWithActivity(LocalDate from, LocalDate to) {
         return jdbcClient.sql("SELECT DISTINCT chat_id FROM message_stats WHERE stat_day BETWEEN :from AND :to ORDER BY chat_id")
                 .param("from", from)

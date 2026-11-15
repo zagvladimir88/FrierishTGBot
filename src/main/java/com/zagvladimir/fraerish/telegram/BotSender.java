@@ -71,7 +71,7 @@ public class BotSender {
                 case BotReply.Menu menu -> telegramClient.execute(SendMessage.builder()
                         .chatId(chatId)
                         .text(menu.text())
-                        .replyMarkup(keyboard(menu))
+                        .replyMarkup(keyboard(menu.keyboard()))
                         .build());
                 case BotReply.Prompt prompt -> telegramClient.execute(SendMessage.builder()
                         .chatId(chatId)
@@ -93,12 +93,30 @@ public class BotSender {
         }
     }
 
-    public Optional<SentPoll> sendTrackedPoll(long chatId, BotReply.Poll poll) {
+    public Optional<SentPoll> sendTrackedPoll(long chatId, BotReply.Poll poll, List<List<BotReply.Button>> buttons) {
         try {
-            Message message = telegramClient.execute(publicPoll(chatId, poll));
+            SendPoll sendPoll = publicPoll(chatId, poll);
+            if (!buttons.isEmpty()) {
+                sendPoll.setReplyMarkup(keyboard(buttons));
+            }
+            Message message = telegramClient.execute(sendPoll);
             return Optional.of(new SentPoll(message.getMessageId(), message.getPoll().getId()));
         } catch (TelegramApiException e) {
             log.error("Failed to send poll to chat {}: {}", chatId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    public Optional<Integer> sendTrackedMenu(long chatId, BotReply.Menu menu) {
+        try {
+            Message message = telegramClient.execute(SendMessage.builder()
+                    .chatId(chatId)
+                    .text(menu.text())
+                    .replyMarkup(keyboard(menu.keyboard()))
+                    .build());
+            return Optional.of(message.getMessageId());
+        } catch (TelegramApiException e) {
+            log.error("Failed to send menu to chat {}: {}", chatId, e.getMessage());
             return Optional.empty();
         }
     }
@@ -122,12 +140,15 @@ public class BotSender {
 
     public void editMenu(long chatId, int messageId, BotReply.Menu menu) {
         try {
-            telegramClient.execute(EditMessageText.builder()
+            EditMessageText edit = EditMessageText.builder()
                     .chatId(chatId)
                     .messageId(messageId)
                     .text(menu.text())
-                    .replyMarkup(keyboard(menu))
-                    .build());
+                    .build();
+            if (!menu.keyboard().isEmpty()) {
+                edit.setReplyMarkup(keyboard(menu.keyboard()));
+            }
+            telegramClient.execute(edit);
         } catch (TelegramApiException e) {
             if (!e.getMessage().contains(MESSAGE_NOT_MODIFIED)) {
                 log.error("Failed to update menu in chat {}: {}", chatId, e.getMessage());
@@ -151,8 +172,8 @@ public class BotSender {
         }
     }
 
-    private static InlineKeyboardMarkup keyboard(BotReply.Menu menu) {
-        return new InlineKeyboardMarkup(menu.keyboard().stream()
+    private static InlineKeyboardMarkup keyboard(List<List<BotReply.Button>> buttons) {
+        return new InlineKeyboardMarkup(buttons.stream()
                 .map(row -> new InlineKeyboardRow(row.stream()
                         .map(button -> InlineKeyboardButton.builder().text(button.text()).callbackData(button.data()).build())
                         .toList()))

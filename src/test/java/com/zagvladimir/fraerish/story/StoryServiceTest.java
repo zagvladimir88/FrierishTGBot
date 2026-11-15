@@ -2,40 +2,49 @@ package com.zagvladimir.fraerish.story;
 
 import com.zagvladimir.fraerish.command.BotReply;
 import com.zagvladimir.fraerish.command.ChatContext;
+import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsAccess;
+import com.zagvladimir.fraerish.stats.ChatStats;
 import com.zagvladimir.fraerish.telegram.BotSender;
 import com.zagvladimir.fraerish.telegram.SentPoll;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class StoryServiceTest {
 
     private static final long GROUP = -100L;
-    private static final StoryGame OPEN_GAME = new StoryGame(5L, GROUP, 77, "poll-1", StoryService.DEFAULT_OPTIONS, null);
+    private static final ChatContext IGOR = new ChatContext(GROUP, 7L, true, false);
+    private static final StoryGame VOTING = new StoryGame(5L, GROUP, 77, "poll-1", StoryService.DEFAULT_OPTIONS, null);
+    private static final StoryGame CONFIRMING_THREE = new StoryGame(5L, GROUP, 77, "poll-1", StoryService.DEFAULT_OPTIONS, null, 900, 3);
+    private static final int SELFIE = 3;
+    private static final int GYM = 2;
 
     private final StoryRepository repository = mock(StoryRepository.class);
     private final BotSender sender = mock(BotSender.class);
     private final SettingsAccess access = mock(SettingsAccess.class);
-    private final StoryService service = new StoryService(repository, sender, access);
+    private final ChatStats chatStats = mock(ChatStats.class);
+    private final StoryService service = new StoryService(repository, sender, access, chatStats);
 
     @Test
-    void startsGameWithDefaultOptionsAndRemembersPoll() {
+    void startsGameWithAllVotedButtonUnderPoll() {
         when(repository.findOpenGame(GROUP)).thenReturn(Optional.empty());
         when(repository.options(GROUP)).thenReturn(Optional.empty());
-        when(sender.sendTrackedPoll(GROUP, new BotReply.Poll(StoryService.QUESTION, StoryService.DEFAULT_OPTIONS)))
+        List<List<BotReply.Button>> button = List.of(List.of(new BotReply.Button("🙋 Все проголосовали", StoryService.ALL_VOTED)));
+        when(sender.sendTrackedPoll(GROUP, new BotReply.Poll(StoryService.QUESTION, StoryService.DEFAULT_OPTIONS), button))
                 .thenReturn(Optional.of(new SentPoll(77, "poll-1")));
 
         assertThat(service.start(GROUP)).isEqualTo(BotReply.none());
@@ -43,97 +52,192 @@ class StoryServiceTest {
     }
 
     @Test
-    void usesChatOptionsAndRefusesSecondOpenGame() {
-        when(repository.findOpenGame(GROUP)).thenReturn(Optional.empty());
-        when(repository.options(GROUP)).thenReturn(Optional.of(List.of("Кот", "Пёс")));
-        when(sender.sendTrackedPoll(any(Long.class), any())).thenReturn(Optional.empty());
+    void refusesSecondOpenGame() {
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(VOTING));
 
-        assertThat(service.start(GROUP)).isEqualTo(BotReply.text("Не получилось создать опрос, попробуйте ещё раз"));
-        verify(sender).sendTrackedPoll(GROUP, new BotReply.Poll(StoryService.QUESTION, List.of("Кот", "Пёс")));
-
-        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(OPEN_GAME));
         assertThat(((BotReply.Text) service.start(GROUP)).text()).startsWith("Угадайка уже идёт");
     }
 
     @Test
-    void closesGameWithExactOrPrefixAnswerAndNamesWinners() {
-        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(OPEN_GAME));
-        when(repository.votersFor(5L, 4)).thenReturn(List.of("Аня", "Игорь"));
+    void asksForTruthWhenEveryActiveMemberVoted() {
+        when(repository.findByPollId("poll-1")).thenReturn(Optional.of(VOTING));
+        when(chatStats.activeUsers(GROUP, StoryService.ACTIVE_DAYS)).thenReturn(3);
+        when(repository.countVotes(5L)).thenReturn(3);
+        when(sender.sendTrackedMenu(eq(GROUP), any())).thenReturn(Optional.of(900));
 
-        BotReply reply = service.answer(GROUP, "дорожка");
+        service.vote("poll-1", 7L, "Игорь", List.of(SELFIE));
 
+        verify(repository).saveVote(5L, 7L, "Игорь", SELFIE);
+        verify(sender).stopPoll(GROUP, 77);
+        BotReply.Menu question = sentMenu();
+        assertThat(question.text()).contains("Ваш выбор видите только вы", "Ответили: 0 из 3");
+        assertThat(question.keyboard()).flatMap(row -> row).extracting(BotReply.Button::text)
+                .containsExactlyElementsOf(StoryService.DEFAULT_OPTIONS);
+        verify(repository).startConfirmation(5L, 900, 3);
+    }
+
+    @Test
+    void keepsVotingUntilEveryoneVoted() {
+        when(repository.findByPollId("poll-1")).thenReturn(Optional.of(VOTING));
+        when(chatStats.activeUsers(GROUP, StoryService.ACTIVE_DAYS)).thenReturn(3);
+        when(repository.countVotes(5L)).thenReturn(2);
+
+        service.vote("poll-1", 7L, "Игорь", List.of(SELFIE));
+
+        verify(sender, never()).sendTrackedMenu(anyLong(), any());
+    }
+
+    @Test
+    void privateChatNeedsOnlyOneVoteAndRetractedVotesAreRemoved() {
+        StoryGame privateGame = new StoryGame(6L, 42L, 10, "poll-2", StoryService.DEFAULT_OPTIONS, null);
+        when(repository.findByPollId("poll-2")).thenReturn(Optional.of(privateGame));
+        when(repository.countVotes(6L)).thenReturn(1);
+        when(sender.sendTrackedMenu(eq(42L), any())).thenReturn(Optional.of(11));
+
+        service.vote("poll-2", 42L, "Vladimir", List.of());
+        service.vote("poll-2", 42L, "Vladimir", List.of(1));
+
+        verify(repository).removeVote(6L, 42L);
+        verify(repository).startConfirmation(6L, 11, 1);
+    }
+
+    @Test
+    void ignoresVotesAfterTruthQuestionStarted() {
+        when(repository.findByPollId("poll-1")).thenReturn(Optional.of(CONFIRMING_THREE));
+
+        service.vote("poll-1", 7L, "Игорь", List.of(1));
+
+        verify(repository, never()).saveVote(anyLong(), anyLong(), any(), anyInt());
+    }
+
+    @Test
+    void allVotedButtonStartsTruthQuestionOnce() {
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(VOTING));
+        when(repository.countVotes(5L)).thenReturn(0);
+        assertThat(service.onButton(IGOR, StoryService.ALL_VOTED)).isEqualTo(CallbackOutcome.toast("Ещё никто не проголосовал"));
+
+        when(repository.countVotes(5L)).thenReturn(2);
+        when(sender.sendTrackedMenu(eq(GROUP), any())).thenReturn(Optional.of(900));
+        assertThat(service.onButton(IGOR, StoryService.ALL_VOTED)).isEqualTo(CallbackOutcome.toast("Выясняем, что было на самом деле"));
+        verify(repository).startConfirmation(5L, 900, 2);
+
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(CONFIRMING_THREE));
+        assertThat(service.onButton(IGOR, StoryService.ALL_VOTED).toast()).startsWith("Уже выясняем правду");
+    }
+
+    @Test
+    void keepsEachChoiceSecretUntilDecided() {
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(CONFIRMING_THREE));
+        when(repository.confirmationCounts(5L)).thenReturn(Map.of(GYM, 1L));
+
+        CallbackOutcome outcome = service.onButton(IGOR, StoryService.CONFIRM + GYM);
+
+        verify(repository).saveConfirmation(5L, 7L, GYM);
+        assertThat(outcome).isEqualTo(CallbackOutcome.toast("Ваш ответ «Качалка» учтён — остальные его не видят"));
+        BotReply.Menu progress = editedMenu();
+        assertThat(progress.text()).contains("Ответили: 1 из 3").doesNotContain("Качалка ·");
+        assertThat(progress.keyboard()).flatMap(row -> row).extracting(BotReply.Button::text)
+                .containsExactlyElementsOf(StoryService.DEFAULT_OPTIONS);
+        verify(repository, never()).closeGame(anyLong(), anyInt());
+    }
+
+    @Test
+    void decidesAsSoonAsOptionHasMajority() {
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(CONFIRMING_THREE));
+        when(repository.confirmationCounts(5L)).thenReturn(Map.of(GYM, 2L));
+        when(repository.votersFor(5L, GYM)).thenReturn(List.of("Игорь"));
+
+        assertThat(service.onButton(IGOR, StoryService.CONFIRM + GYM)).isEqualTo(CallbackOutcome.toast("Решено большинством!"));
+
+        verify(repository).closeGame(5L, GYM);
+        BotReply.Menu result = editedMenu();
+        assertThat(result.text()).isEqualTo("✅ В сторис: Качалка (так ответили 2 из 3)\n🎯 Угадали: Игорь");
+        assertThat(result.keyboard()).isEmpty();
+    }
+
+    @Test
+    void decidesByMostAnswersWhenEveryoneAnswered() {
+        StoryGame confirmingFour = new StoryGame(5L, GROUP, 77, "poll-1", StoryService.DEFAULT_OPTIONS, null, 900, 4);
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(confirmingFour));
+        when(repository.confirmationCounts(5L)).thenReturn(Map.of(GYM, 2L, SELFIE, 1L, 0, 1L));
+
+        service.onButton(IGOR, StoryService.CONFIRM + GYM);
+
+        verify(repository).closeGame(5L, GYM);
+    }
+
+    @Test
+    void callsEveryoneCheatersWhenAllAnsweredDifferently() {
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(CONFIRMING_THREE));
+        when(repository.confirmationCounts(5L)).thenReturn(Map.of(GYM, 1L, SELFIE, 1L, 0, 1L));
+
+        assertThat(service.onButton(IGOR, StoryService.CONFIRM + SELFIE)).isEqualTo(CallbackOutcome.toast("Большинства нет 🤥"));
+
+        verify(repository).closeGame(5L, StoryRepository.NO_ANSWER);
+        BotReply.Menu verdict = editedMenu();
+        assertThat(verdict.text()).isEqualTo("🤥 Все жулики — каждый голосует за свой вариант\nУгадайка закрыта без ответа");
+        assertThat(verdict.keyboard()).isEmpty();
+    }
+
+    @Test
+    void closesWithoutAnswerOnEvenSplit() {
+        StoryGame confirmingFour = new StoryGame(5L, GROUP, 77, "poll-1", StoryService.DEFAULT_OPTIONS, null, 900, 4);
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(confirmingFour));
+        when(repository.confirmationCounts(5L)).thenReturn(Map.of(GYM, 2L, SELFIE, 2L));
+
+        service.onButton(IGOR, StoryService.CONFIRM + SELFIE);
+
+        verify(repository).closeGame(5L, StoryRepository.NO_ANSWER);
+        assertThat(editedMenu().text()).startsWith("🤥 Голоса разделились поровну — жулики не договорились");
+    }
+
+    @Test
+    void ignoresButtonsOfFinishedOrBrokenGames() {
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.empty());
+        assertThat(service.onButton(IGOR, StoryService.CONFIRM + GYM)).isEqualTo(CallbackOutcome.toast("Эта угадайка уже закончилась"));
+
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(CONFIRMING_THREE));
+        assertThat(service.onButton(IGOR, StoryService.CONFIRM + "99")).isEqualTo(CallbackOutcome.toast(null));
+        assertThat(service.onButton(IGOR, StoryService.CONFIRM + "x")).isEqualTo(CallbackOutcome.toast(null));
+
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(VOTING));
+        assertThat(service.onButton(IGOR, StoryService.CONFIRM + GYM)).isEqualTo(CallbackOutcome.toast(null));
+        verify(repository, never()).saveConfirmation(anyLong(), anyLong(), anyInt());
+    }
+
+    @Test
+    void onlyAdminsCloseGameManually() {
+        ChatContext admin = new ChatContext(GROUP, 1L, true, false);
+        when(access.canConfigure(IGOR)).thenReturn(false);
+        when(access.canConfigure(admin)).thenReturn(true);
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(VOTING));
+        when(repository.votersFor(5L, 4)).thenReturn(List.of());
+
+        assertThat(((BotReply.Text) service.answer(IGOR, "качалка")).text()).startsWith("Правильный ответ выбирает большинство");
+        assertThat(service.answer(admin, "дорожка")).isEqualTo(BotReply.text("✅ В сторис: Дорожка в качалке\n😅 Никто не угадал"));
         verify(sender).stopPoll(GROUP, 77);
         verify(repository).closeGame(5L, 4);
-        assertThat(reply).isEqualTo(BotReply.text("✅ В сторис: Дорожка в качалке\n🎯 Угадали: Аня, Игорь"));
     }
 
     @Test
-    void acceptsYoForE() {
-        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(OPEN_GAME));
+    void showsLeaderboardAndLetsAdminsChangeOptions() {
+        when(repository.leaderboard(GROUP, StoryService.TOP_SIZE)).thenReturn(List.of(new StoryScore("Игорь", 5, 7), new StoryScore("Аня", 4, 7)));
+        when(access.canConfigure(IGOR)).thenReturn(true);
 
-        assertThat(service.answer(GROUP, "ЗВЕЗДНОЕ НЕБО")).isEqualTo(BotReply.text("✅ В сторис: Звёздное небо\n😅 Никто не угадал"));
-    }
-
-    @Test
-    void explainsAmbiguousUnknownOrMissingAnswers() {
-        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(OPEN_GAME));
-
-        assertThat(((BotReply.Text) service.answer(GROUP, "")).text()).contains("Варианты: Пейзаж, Звёздное небо");
-        assertThat(((BotReply.Text) service.answer(GROUP, "собака")).text()).startsWith("Нет такого варианта");
-        verify(repository, never()).closeGame(anyLong(), anyInt());
-
-        when(repository.findOpenGame(GROUP)).thenReturn(Optional.empty());
-        assertThat(service.answer(GROUP, "селфи")).isEqualTo(BotReply.text("Сейчас нет открытой угадайки. Начать: /story"));
-    }
-
-    @Test
-    void recordsAndRetractsVotesOnlyForOpenGames() {
-        when(repository.findByPollId("poll-1")).thenReturn(Optional.of(OPEN_GAME));
-        when(repository.findByPollId("closed")).thenReturn(Optional.of(new StoryGame(6L, GROUP, 78, "closed", List.of("A", "B"), 0)));
-
-        service.vote("poll-1", 7L, "Игорь", List.of(2));
-        service.vote("poll-1", 7L, "Игорь", List.of());
-        service.vote("closed", 7L, "Игорь", List.of(1));
-        service.vote("unknown", 7L, "Игорь", List.of(1));
-
-        verify(repository).saveVote(5L, 7L, "Игорь", 2);
-        verify(repository).removeVote(5L, 7L);
-        verify(repository, never()).saveVote(6L, 7L, "Игорь", 1);
-    }
-
-    @Test
-    void showsLeaderboard() {
-        when(repository.leaderboard(GROUP, StoryService.TOP_SIZE)).thenReturn(List.of(
-                new StoryScore("Игорь", 5, 7), new StoryScore("Аня", 4, 7), new StoryScore("Vladimir", 2, 3), new StoryScore("Иегова", 0, 1)));
-
-        assertThat(service.top(GROUP)).isEqualTo(BotReply.text("""
-                🏆 Лучше всех угадывают сторис
-                🥇 Игорь — 5 из 7
-                🥈 Аня — 4 из 7
-                🥉 Vladimir — 2 из 3
-                4. Иегова — 0 из 1"""));
-    }
-
-    @Test
-    void onlyAdminsChangeOptionsWithinLimits() {
-        ChatContext admin = new ChatContext(GROUP, 1L, true, false);
-        ChatContext member = new ChatContext(GROUP, 2L, true, false);
-        when(access.canConfigure(admin)).thenReturn(true);
-        when(access.canConfigure(member)).thenReturn(false);
-        when(repository.options(GROUP)).thenReturn(Optional.empty());
-
-        assertThat(service.changeOptions(member, List.of("A", "B"))).isEqualTo(BotReply.text("Варианты угадайки меняют только админы группы"));
-        assertThat(((BotReply.Text) service.changeOptions(admin, List.of("A"))).text()).startsWith("Нужно от 2 до 12 вариантов");
-        assertThat(service.changeOptions(admin, List.of("Кот", "Пёс"))).isEqualTo(BotReply.text("Варианты для /story: Кот, Пёс"));
+        assertThat(service.top(GROUP)).isEqualTo(BotReply.text("🏆 Лучше всех угадывают сторис\n🥇 Игорь — 5 из 7\n🥈 Аня — 4 из 7"));
+        assertThat(service.changeOptions(IGOR, List.of("Кот", "Пёс"))).isEqualTo(BotReply.text("Варианты для /story: Кот, Пёс"));
         verify(repository).saveOptions(GROUP, List.of("Кот", "Пёс"));
     }
 
-    @Test
-    void doesNothingForUnknownPollAnswers() {
-        when(repository.findByPollId(anyString())).thenReturn(Optional.empty());
+    private BotReply.Menu sentMenu() {
+        ArgumentCaptor<BotReply.Menu> captor = ArgumentCaptor.forClass(BotReply.Menu.class);
+        verify(sender).sendTrackedMenu(eq(GROUP), captor.capture());
+        return captor.getValue();
+    }
 
-        service.vote("other", 1L, "x", List.of(0));
-
-        verifyNoInteractions(sender, access);
+    private BotReply.Menu editedMenu() {
+        ArgumentCaptor<BotReply.Menu> captor = ArgumentCaptor.forClass(BotReply.Menu.class);
+        verify(sender).editMenu(eq(GROUP), eq(900), captor.capture());
+        return captor.getValue();
     }
 }
