@@ -176,17 +176,18 @@ public class StoryService {
         if (!game.confirming() || index < 0 || index >= game.options().size()) {
             return CallbackOutcome.toast(null);
         }
+        if (!repository.hasVoted(game.id(), context.userId())) {
+            return CallbackOutcome.toast("Вы не голосовали в этой угадайке — отвечают только те, кто голосовал");
+        }
         repository.saveConfirmation(game.id(), context.userId(), index);
         Map<Integer, Long> counts = repository.confirmationCounts(game.id());
         long answered = counts.values().stream().mapToLong(Long::longValue).sum();
-        Optional<Integer> leader = soleLeader(counts);
-        boolean decided = leader.isPresent()
-                && (counts.get(leader.get()) >= game.majority() || answered >= game.votersSnapshot());
-        if (decided) {
-            finish(game, leader.get());
-            return CallbackOutcome.toast("Решено большинством!");
-        }
         if (answered >= game.votersSnapshot()) {
+            Optional<Integer> leader = soleLeader(counts);
+            if (leader.isPresent()) {
+                finish(game, leader.get());
+                return CallbackOutcome.toast("Все ответили — итог в сообщении");
+            }
             finishWithoutAnswer(game, counts);
             return CallbackOutcome.toast("Большинства нет 🤥");
         }
@@ -235,7 +236,7 @@ public class StoryService {
     }
 
     private static BotReply.Menu confirmationMenu(List<String> options, long answered, int voters) {
-        String text = "🕵️ Что было на самом деле? Каждый нажмите свой вариант — что выберет большинство, то и правда. "
+        String text = "🕵️ Что было на самом деле? Каждый нажмите свой вариант — когда ответят все, правдой станет вариант с большинством. "
                 + "Ваш выбор видите только вы.\nОтветили: %d из %d".formatted(answered, voters);
         List<Button> buttons = IntStream.range(0, options.size())
                 .mapToObj(i -> new Button(options.get(i), CONFIRM + i))
