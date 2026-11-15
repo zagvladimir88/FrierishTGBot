@@ -1,0 +1,55 @@
+package com.zagvladimir.fraerish.weather;
+
+import com.zagvladimir.fraerish.command.BotReply;
+import com.zagvladimir.fraerish.command.CommandHandler;
+import com.zagvladimir.fraerish.command.CommandRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+
+import java.util.Locale;
+import java.util.Map;
+
+@Component
+@RequiredArgsConstructor
+public class WeatherHandler implements CommandHandler {
+
+    static final String USAGE = "Укажите город: /w Минск";
+    static final String CITY_NOT_FOUND = "Incorrect city name";
+
+    private static final Map<String, String> EMOJI_BY_CONDITION = Map.of(
+            "clear", "☀️",
+            "clouds", "☁️",
+            "rain", "🌧️",
+            "snow", "❄️");
+
+    private final OpenWeatherClient openWeatherClient;
+
+    @Override
+    public String command() {
+        return "/w";
+    }
+
+    @Override
+    public BotReply handle(CommandRequest request) {
+        return request.hasArgs() ? forecast(request.args()) : BotReply.text(USAGE);
+    }
+
+    public BotReply forecast(String city) {
+        try {
+            return BotReply.text(format(openWeatherClient.currentWeather(city)));
+        } catch (HttpClientErrorException.NotFound e) {
+            return BotReply.text(CITY_NOT_FOUND);
+        }
+    }
+
+    private static String format(CurrentWeather weather) {
+        CurrentWeather.Condition condition = weather.condition();
+        return "%s %s %s \nТемпература %s ощущается как %s".formatted(
+                weather.name(),
+                condition.description(),
+                EMOJI_BY_CONDITION.getOrDefault(condition.main().toLowerCase(Locale.ROOT), ""),
+                weather.main().temp(),
+                weather.main().feelsLike());
+    }
+}

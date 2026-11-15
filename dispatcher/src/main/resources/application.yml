@@ -1,8 +1,0 @@
-bot:
-  token: ${BOT_TOKEN}
-  name: ${BOT_NAME}
-server:
-  port: 8080
-spring:
-  main:
-    allow-circular-references: true

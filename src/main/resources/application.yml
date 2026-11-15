@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: fraerish-bot
+  main:
+    banner-mode: off
+  datasource:
+    url: jdbc:h2:file:${BOT_DATA_DIR:./data}/fraerish-bot
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+  http:
+    clients:
+      connect-timeout: 5s
+      read-timeout: 15s
+
+bot:
+  token: ${BOT_TOKEN}
+  name: ${BOT_NAME}
+  polling-enabled: true
+  schedule:
+    zone: Europe/Minsk
+    exchange-cron: "0 0 11 * * *"
+    weather-cron: "0 30 11 * * *"
+    currency: USD
+    city: Минск
+
+integration:
+  open-weather:
+    base-url: https://api.openweathermap.org
+    api-key: ${OPEN_API_TOKEN}
+  nbrb:
+    base-url: https://api.nbrb.by
+  searxng:
+    base-url: ${SEARXNG_URL:http://searxng:8080}
+    max-images: 3
+    safesearch: 1

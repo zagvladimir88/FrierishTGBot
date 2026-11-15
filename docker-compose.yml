@@ -1,0 +1,31 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  bot:
+    build: .
+    image: fraerish-bot
+    env_file: .env
+    environment:
+      SEARXNG_URL: http://searxng:8080
+    volumes:
+      - bot-data:/data
+    depends_on:
+      - searxng
+    restart: unless-stopped
+    logging: *logging
+
+  searxng:
+    image: searxng/searxng:2026.11.13-219b63b20
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?SEARXNG_SECRET is required}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  bot-data:
