@@ -20,8 +20,4 @@ public record StoryGame(long id, long chatId, int messageId, String pollId, List
     public boolean confirming() {
         return confirmMessageId != null;
     }
-
-    public int majority() {
-        return votersSnapshot == null ? 1 : votersSnapshot / 2 + 1;
-    }
 }

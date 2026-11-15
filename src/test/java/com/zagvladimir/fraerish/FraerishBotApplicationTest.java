@@ -169,7 +169,8 @@ class FraerishBotApplicationTest {
         assertThat(storyRepository.countVotes(third.id())).isEqualTo(2);
         assertThat(confirming.confirmMessageId()).isEqualTo(901);
         assertThat(confirming.votersSnapshot()).isEqualTo(2);
-        assertThat(confirming.majority()).isEqualTo(2);
+        assertThat(storyRepository.hasVoted(third.id(), 2L)).isTrue();
+        assertThat(storyRepository.hasVoted(third.id(), 3L)).isFalse();
         assertThat(storyRepository.confirmationCounts(third.id())).isEqualTo(Map.of(1, 2L));
         storyRepository.closeGame(third.id(), -1);
         assertThat(storyRepository.findOpenGame(group)).isEmpty();

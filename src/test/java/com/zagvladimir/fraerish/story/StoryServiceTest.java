@@ -7,6 +7,7 @@ import com.zagvladimir.fraerish.settings.SettingsAccess;
 import com.zagvladimir.fraerish.telegram.ChatMembers;
 import com.zagvladimir.fraerish.telegram.BotSender;
 import com.zagvladimir.fraerish.telegram.SentPoll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -38,6 +39,11 @@ class StoryServiceTest {
     private final SettingsAccess access = mock(SettingsAccess.class);
     private final ChatMembers chatMembers = mock(ChatMembers.class);
     private final StoryService service = new StoryService(repository, sender, access, chatMembers);
+
+    @BeforeEach
+    void everyoneVoted() {
+        when(repository.hasVoted(anyLong(), anyLong())).thenReturn(true);
+    }
 
     @Test
     void startsGameWithAllVotedButtonUnderPoll() {
@@ -187,12 +193,33 @@ class StoryServiceTest {
     }
 
     @Test
-    void decidesAsSoonAsOptionHasMajority() {
+    void waitsForEveryoneEvenWhenOptionAlreadyHasMajority() {
         when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(CONFIRMING_THREE));
         when(repository.confirmationCounts(5L)).thenReturn(Map.of(GYM, 2L));
+
+        service.onButton(IGOR, StoryService.CONFIRM + GYM);
+
+        verify(repository, never()).closeGame(anyLong(), anyInt());
+        assertThat(editedMenu().text()).contains("Ответили: 2 из 3");
+    }
+
+    @Test
+    void rejectsAnswerFromSomeoneWhoDidNotVote() {
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(CONFIRMING_THREE));
+        when(repository.hasVoted(5L, 7L)).thenReturn(false);
+
+        assertThat(service.onButton(IGOR, StoryService.CONFIRM + GYM).toast()).startsWith("Вы не голосовали");
+
+        verify(repository, never()).saveConfirmation(anyLong(), anyLong(), anyInt());
+    }
+
+    @Test
+    void decidesByMajorityOnceEveryoneAnswered() {
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(CONFIRMING_THREE));
+        when(repository.confirmationCounts(5L)).thenReturn(Map.of(GYM, 2L, SELFIE, 1L));
         when(repository.votersFor(5L, GYM)).thenReturn(List.of("Игорь"));
 
-        assertThat(service.onButton(IGOR, StoryService.CONFIRM + GYM)).isEqualTo(CallbackOutcome.toast("Решено большинством!"));
+        assertThat(service.onButton(IGOR, StoryService.CONFIRM + GYM)).isEqualTo(CallbackOutcome.toast("Все ответили — итог в сообщении"));
 
         verify(repository).closeGame(5L, GYM);
         BotReply.Menu result = editedMenu();

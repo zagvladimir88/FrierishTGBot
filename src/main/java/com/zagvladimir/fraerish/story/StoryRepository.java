@@ -136,6 +136,14 @@ public class StoryRepository {
                 .single();
     }
 
+    public boolean hasVoted(long gameId, long userId) {
+        return jdbcClient.sql("SELECT COUNT(*) FROM story_votes WHERE game_id = :gameId AND user_id = :userId")
+                .param("gameId", gameId)
+                .param("userId", userId)
+                .query(Integer.class)
+                .single() > 0;
+    }
+
     public void startConfirmation(long gameId, int confirmMessageId, int voters) {
         jdbcClient.sql("UPDATE story_games SET confirm_message_id = :messageId, voters_snapshot = :voters WHERE id = :id")
                 .param("messageId", confirmMessageId)
