@@ -10,6 +10,8 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
 import org.telegram.telegrambots.meta.api.methods.polls.SendPoll;
+import org.telegram.telegrambots.meta.api.methods.polls.StopPoll;
+import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.polls.input.InputPollOption;
 import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
 import org.telegram.telegrambots.meta.api.methods.ActionType;
@@ -26,6 +28,7 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.io.ByteArrayInputStream;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -52,12 +55,9 @@ public class BotSender {
                         .text(text.text())
                         .replyToMessageId(replyToMessageId)
                         .build());
-                case BotReply.Poll poll -> telegramClient.execute(SendPoll.builder()
-                        .chatId(chatId)
-                        .question(poll.question())
-                        .options(poll.options().stream().map(InputPollOption::new).toList())
-                        .isAnonymous(false)
-                        .build());
+                case BotReply.None none -> {
+                }
+                case BotReply.Poll poll -> telegramClient.execute(publicPoll(chatId, poll));
                 case BotReply.Video video -> telegramClient.execute(SendVideo.builder()
                         .chatId(chatId)
                         .video(new InputFile(new ByteArrayInputStream(video.content()), video.fileName()))
@@ -91,6 +91,33 @@ public class BotSender {
             log.error("Failed to send reply to chat {}: {}", chatId, e.getMessage());
             return SendResult.FAILED;
         }
+    }
+
+    public Optional<SentPoll> sendTrackedPoll(long chatId, BotReply.Poll poll) {
+        try {
+            Message message = telegramClient.execute(publicPoll(chatId, poll));
+            return Optional.of(new SentPoll(message.getMessageId(), message.getPoll().getId()));
+        } catch (TelegramApiException e) {
+            log.error("Failed to send poll to chat {}: {}", chatId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    public void stopPoll(long chatId, int messageId) {
+        try {
+            telegramClient.execute(StopPoll.builder().chatId(chatId).messageId(messageId).build());
+        } catch (TelegramApiException e) {
+            log.warn("Failed to close poll {} in chat {}: {}", messageId, chatId, e.getMessage());
+        }
+    }
+
+    private static SendPoll publicPoll(long chatId, BotReply.Poll poll) {
+        return SendPoll.builder()
+                .chatId(chatId)
+                .question(poll.question())
+                .options(poll.options().stream().map(InputPollOption::new).toList())
+                .isAnonymous(false)
+                .build();
     }
 
     public void editMenu(long chatId, int messageId, BotReply.Menu menu) {
