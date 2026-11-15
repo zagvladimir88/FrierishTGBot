@@ -26,6 +26,12 @@ bot:
     retry-window: 30m
     max-cities: 5
     max-currencies: 5
+  weather-alerts:
+    cron: "0 5 * * * *"
+    active-from: "07:00"
+    active-to: "22:00"
+    lookahead: 3h
+    min-chance: 0.5
 
 integration:
   open-weather:

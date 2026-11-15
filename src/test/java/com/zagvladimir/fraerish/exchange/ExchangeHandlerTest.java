@@ -41,7 +41,7 @@ class ExchangeHandlerTest {
     @Test
     void usesChatCurrenciesWhenCommandHasNoArguments() {
         when(chatRepository.find(1)).thenReturn(Optional.of(
-                new ChatSettings(1, true, LocalTime.of(11, 0), List.of("Минск"), List.of("EUR"), true, true, null)));
+                new ChatSettings(1, true, LocalTime.of(11, 0), List.of("Минск"), List.of("EUR"), true, true, null, true)));
         when(rateService.quote("EUR")).thenReturn(new Quote.Fiat("EUR", 1, new BigDecimal("3.4812")));
 
         assertThat(handler.handle(new CommandRequest(1, ""))).isEqualTo(BotReply.text("EUR — 3.48 BYN"));

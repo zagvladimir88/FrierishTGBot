@@ -42,7 +42,7 @@ class ForecastSummaryTest {
     }
 
     private static Forecast forecast(Forecast.Slot... slots) {
-        return new Forecast(List.of(slots), new Forecast.City(MINSK_OFFSET));
+        return new Forecast(List.of(slots), new Forecast.City("Минск", MINSK_OFFSET));
     }
 
     private static Forecast.Slot slot(int index, double temperature, String condition, double chance) {

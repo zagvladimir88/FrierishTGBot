@@ -15,6 +15,10 @@ public record Forecast(List<Slot> list, City city) {
         return city == null ? 0 : city.timezone();
     }
 
+    public String cityName() {
+        return city == null || city.name() == null ? "" : city.name();
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Slot(long dt, CurrentWeather.Temperature main, List<CurrentWeather.Condition> weather, double pop) {
 
@@ -24,6 +28,6 @@ public record Forecast(List<Slot> list, City city) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record City(int timezone) {
+    public record City(String name, int timezone) {
     }
 }

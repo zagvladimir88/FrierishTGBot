@@ -27,6 +27,7 @@ public class SettingsMenu {
     static final String CURRENCIES = "s:cur";
     static final String RATES = "s:rates";
     static final String WEATHER = "s:weather";
+    static final String ALERTS = "s:alerts";
     static final String MAIN = "s:menu";
 
     static final String CITIES_PROMPT = "🏙 Напишите города через запятую";
@@ -51,7 +52,8 @@ public class SettingsMenu {
                         : new Button("🔔 Включить сводку", ENABLE)),
                 List.of(new Button("🕘 Время", TIME), new Button("🏙 Города", CITIES), new Button("💱 Валюты", CURRENCIES)),
                 List.of(new Button(check(settings.sendRates()) + " Курсы", RATES),
-                        new Button(check(settings.sendWeather()) + " Погода", WEATHER))));
+                        new Button(check(settings.sendWeather()) + " Погода", WEATHER)),
+                List.of(new Button(check(settings.weatherAlerts()) + " Предупреждения о дожде и снеге", ALERTS))));
     }
 
     public BotReply.Menu hours() {
@@ -100,7 +102,8 @@ public class SettingsMenu {
                 "🕘 Время: %s (%s)".formatted(settings.digestTime().format(HH_MM), properties.zoneLabel()),
                 "🏙 Города: " + listOrDash(settings.cities()),
                 "💱 Валюты: " + listOrDash(settings.currencies()),
-                "📦 В сводке: " + content(settings));
+                "📦 В сводке: " + content(settings),
+                "⚠️ Предупреждения о дожде и снеге: " + (settings.weatherAlerts() ? "включены" : "выключены"));
     }
 
     private static String content(ChatSettings settings) {

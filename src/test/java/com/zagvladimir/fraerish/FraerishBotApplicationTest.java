@@ -43,7 +43,7 @@ class FraerishBotApplicationTest {
         ChatSettings created = chatRepository.findOrCreate(100L);
         chatRepository.findOrCreate(100L);
 
-        assertThat(created).isEqualTo(new ChatSettings(100L, false, LocalTime.of(11, 0), List.of("Минск"), List.of("USD"), true, true, null));
+        assertThat(created).isEqualTo(new ChatSettings(100L, false, LocalTime.of(11, 0), List.of("Минск"), List.of("USD"), true, true, null, true));
     }
 
     @Test
@@ -54,9 +54,28 @@ class FraerishBotApplicationTest {
         chatRepository.updateCities(200L, List.of("Минск", "Нижний Новгород"));
         chatRepository.updateCurrencies(200L, List.of("USD", "BTC"));
         chatRepository.updateSendRates(200L, false);
+        chatRepository.updateWeatherAlerts(200L, false);
 
         assertThat(chatRepository.find(200L)).contains(new ChatSettings(200L, true, LocalTime.of(8, 30),
-                List.of("Минск", "Нижний Новгород"), List.of("USD", "BTC"), false, true, null));
+                List.of("Минск", "Нижний Новгород"), List.of("USD", "BTC"), false, true, null, false));
+    }
+
+    @Test
+    void findsEnabledChatsWithWeatherAlertsAndCities() {
+        chatRepository.findOrCreate(401L);
+        chatRepository.setEnabled(401L, true);
+        chatRepository.findOrCreate(402L);
+        chatRepository.setEnabled(402L, true);
+        chatRepository.updateWeatherAlerts(402L, false);
+        chatRepository.findOrCreate(403L);
+        chatRepository.findOrCreate(404L);
+        chatRepository.setEnabled(404L, true);
+        chatRepository.updateCities(404L, List.of());
+
+        assertThat(chatRepository.findWeatherAlertSubscribers())
+                .extracting(ChatSettings::chatId)
+                .filteredOn(chatId -> chatId > 400L && chatId < 500L)
+                .containsExactly(401L);
     }
 
     @Test

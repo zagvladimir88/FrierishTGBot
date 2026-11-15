@@ -49,6 +49,11 @@ public class SettingsService {
         return settings(chatId);
     }
 
+    public ChatSettings toggleWeatherAlerts(long chatId) {
+        chatRepository.updateWeatherAlerts(chatId, !settings(chatId).weatherAlerts());
+        return settings(chatId);
+    }
+
     public ListUpdate updateCities(long chatId, String input) {
         List<String> requested = ListInput.cities(input);
         if (requested.isEmpty()) {

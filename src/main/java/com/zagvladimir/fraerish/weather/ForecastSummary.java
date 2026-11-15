@@ -32,18 +32,13 @@ final class ForecastSummary {
     }
 
     private static String precipitation(List<Forecast.Slot> slots, ZoneOffset offset) {
-        List<Forecast.Slot> wet = slots.stream()
-                .filter(slot -> Precipitation.of(slot.condition().main()).isPresent())
-                .toList();
+        List<Forecast.Slot> wet = slots.stream().filter(Precipitation::expectedIn).toList();
         if (wet.isEmpty()) {
             return "без осадков";
         }
-        Precipitation kind = Precipitation.strongest(wet.stream()
-                .map(slot -> Precipitation.of(slot.condition().main()).orElseThrow())
-                .toList()).orElseThrow();
         String start = Instant.ofEpochSecond(wet.getFirst().dt()).atOffset(offset).format(TIME);
-        long chance = Math.round(wet.stream().mapToDouble(Forecast.Slot::pop).max().orElse(0) * 100);
-        String description = "с %s возмож%s %s".formatted(start, kind == Precipitation.THUNDERSTORM ? "на" : "ен", kind.description());
+        String description = "с %s %s".formatted(start, Precipitation.strongestOf(wet).possible());
+        long chance = Precipitation.chancePercent(wet);
         return chance > 0 ? description + " (%d%%)".formatted(chance) : description;
     }
 }

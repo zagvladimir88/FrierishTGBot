@@ -47,6 +47,7 @@ public class SettingsController {
             case SettingsMenu.CURRENCIES -> askFor(context, SettingsMenu.PromptKind.CURRENCIES, settingsMenu.currenciesPrompt());
             case SettingsMenu.RATES -> CallbackOutcome.edit(settingsMenu.main(settingsService.toggleRates(chatId)));
             case SettingsMenu.WEATHER -> CallbackOutcome.edit(settingsMenu.main(settingsService.toggleWeather(chatId)));
+            case SettingsMenu.ALERTS -> CallbackOutcome.edit(settingsMenu.main(settingsService.toggleWeatherAlerts(chatId)));
             case SettingsMenu.MAIN -> CallbackOutcome.edit(settingsMenu.main(settingsService.settings(chatId)));
             default -> timeSelection(chatId, data);
         };

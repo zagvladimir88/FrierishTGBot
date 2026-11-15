@@ -42,7 +42,7 @@ class WeatherHandlerTest {
     @Test
     void usesChatCitiesWhenCommandHasNoArguments() {
         when(chatRepository.find(1)).thenReturn(Optional.of(
-                new ChatSettings(1, true, LocalTime.of(11, 0), List.of("Минск"), List.of("USD"), true, true, null)));
+                new ChatSettings(1, true, LocalTime.of(11, 0), List.of("Минск"), List.of("USD"), true, true, null, true)));
         when(weatherService.lookup("Минск")).thenReturn(new CityWeather.Found("Минск", "Минск ясно"));
 
         assertThat(handler.handle(new CommandRequest(1, ""))).isEqualTo(BotReply.text("Минск ясно"));

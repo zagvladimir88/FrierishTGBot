@@ -26,8 +26,8 @@ class SettingsControllerTest {
 
     private static final long CHAT_ID = -100L;
     private static final ChatContext GROUP_MEMBER = new ChatContext(CHAT_ID, 5L, true, false);
-    private static final ChatSettings DISABLED = new ChatSettings(CHAT_ID, false, LocalTime.of(11, 0), List.of("Минск"), List.of("USD"), true, true, null);
-    private static final ChatSettings ENABLED = new ChatSettings(CHAT_ID, true, LocalTime.of(8, 30), List.of("Минск", "Брест"), List.of("USD", "BTC"), true, false, null);
+    private static final ChatSettings DISABLED = new ChatSettings(CHAT_ID, false, LocalTime.of(11, 0), List.of("Минск"), List.of("USD"), true, true, null, true);
+    private static final ChatSettings ENABLED = new ChatSettings(CHAT_ID, true, LocalTime.of(8, 30), List.of("Минск", "Брест"), List.of("USD", "BTC"), true, false, null, true);
 
     private final SettingsService settingsService = mock(SettingsService.class);
     private final SettingsAccess settingsAccess = mock(SettingsAccess.class);
