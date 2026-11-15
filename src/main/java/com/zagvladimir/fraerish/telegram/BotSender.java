@@ -4,11 +4,17 @@ import com.zagvladimir.fraerish.command.BotReply;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ForceReplyKeyboard;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
@@ -23,6 +29,7 @@ public class BotSender {
 
     static final String PHOTOS_REJECTED = "Не получилось отправить картинки, попробуйте другой запрос";
 
+    private static final String MESSAGE_NOT_MODIFIED = "message is not modified";
     private static final int FORBIDDEN = 403;
     private static final int MAX_MEDIA_GROUP_SIZE = 10;
 
@@ -33,6 +40,16 @@ public class BotSender {
             switch (reply) {
                 case BotReply.Text text -> sendText(chatId, text.text());
                 case BotReply.Photos photos -> sendPhotos(chatId, photos.photos());
+                case BotReply.Menu menu -> telegramClient.execute(SendMessage.builder()
+                        .chatId(chatId)
+                        .text(menu.text())
+                        .replyMarkup(keyboard(menu))
+                        .build());
+                case BotReply.Prompt prompt -> telegramClient.execute(SendMessage.builder()
+                        .chatId(chatId)
+                        .text(prompt.text())
+                        .replyMarkup(ForceReplyKeyboard.builder().forceReply(true).build())
+                        .build());
             }
             return SendResult.SENT;
         } catch (TelegramApiRequestException e) {
@@ -46,6 +63,37 @@ public class BotSender {
             log.error("Failed to send reply to chat {}: {}", chatId, e.getMessage());
             return SendResult.FAILED;
         }
+    }
+
+    public void editMenu(long chatId, int messageId, BotReply.Menu menu) {
+        try {
+            telegramClient.execute(EditMessageText.builder()
+                    .chatId(chatId)
+                    .messageId(messageId)
+                    .text(menu.text())
+                    .replyMarkup(keyboard(menu))
+                    .build());
+        } catch (TelegramApiException e) {
+            if (!e.getMessage().contains(MESSAGE_NOT_MODIFIED)) {
+                log.error("Failed to update menu in chat {}: {}", chatId, e.getMessage());
+            }
+        }
+    }
+
+    public void answerButton(String callbackQueryId, String toast) {
+        try {
+            telegramClient.execute(AnswerCallbackQuery.builder().callbackQueryId(callbackQueryId).text(toast).build());
+        } catch (TelegramApiException e) {
+            log.warn("Failed to answer button press {}: {}", callbackQueryId, e.getMessage());
+        }
+    }
+
+    private static InlineKeyboardMarkup keyboard(BotReply.Menu menu) {
+        return new InlineKeyboardMarkup(menu.keyboard().stream()
+                .map(row -> new InlineKeyboardRow(row.stream()
+                        .map(button -> InlineKeyboardButton.builder().text(button.text()).callbackData(button.data()).build())
+                        .toList()))
+                .toList());
     }
 
     private void sendText(long chatId, String text) throws TelegramApiException {

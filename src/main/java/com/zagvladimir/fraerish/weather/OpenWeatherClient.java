@@ -20,4 +20,11 @@ public class OpenWeatherClient {
                 .retrieve()
                 .body(CurrentWeather.class);
     }
+
+    public Forecast forecast(String city, int slots) {
+        return restClient.get()
+                .uri("/data/2.5/forecast?q={city}&appid={apiKey}&units=metric&lang=ru&cnt={slots}", city, apiKey, slots)
+                .retrieve()
+                .body(Forecast.class);
+    }
 }

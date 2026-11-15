@@ -10,6 +10,7 @@ spring:
   sql:
     init:
       mode: always
+      encoding: UTF-8
   http:
     clients:
       connect-timeout: 5s
@@ -19,12 +20,12 @@ bot:
   token: ${BOT_TOKEN}
   name: ${BOT_NAME}
   polling-enabled: true
-  schedule:
+  digest:
     zone: Europe/Minsk
-    exchange-cron: "0 0 11 * * *"
-    weather-cron: "0 30 11 * * *"
-    currency: USD
-    city: Минск
+    zone-label: по Минску
+    retry-window: 30m
+    max-cities: 5
+    max-currencies: 5
 
 integration:
   open-weather:
@@ -32,6 +33,8 @@ integration:
     api-key: ${OPEN_API_TOKEN}
   nbrb:
     base-url: https://api.nbrb.by
+  binance:
+    base-url: https://api.binance.com
   searxng:
     base-url: ${SEARXNG_URL:http://searxng:8080}
     candidates: 10
