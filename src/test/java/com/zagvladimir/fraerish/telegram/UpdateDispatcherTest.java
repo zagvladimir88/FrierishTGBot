@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -41,15 +42,15 @@ class UpdateDispatcherTest {
     private final SettingsController settingsController = mock(SettingsController.class);
     private final UpdateDispatcher dispatcher = new UpdateDispatcher(
             List.of(
-                    new StubHandler("/w", false, request -> {
+                    new StubHandler("/w", List.of("/weather"), false, request -> {
                         weatherRequests.add(request);
                         return BotReply.text("погода");
                     }),
-                    new StubHandler("/c", true, request -> {
+                    new StubHandler("/c", List.of(), true, request -> {
                         layoutRequests.add(request);
                         return BotReply.text("раскладка");
                     }),
-                    new StubHandler("/broken", false, request -> {
+                    new StubHandler("/broken", List.of(), false, request -> {
                         throw new IllegalStateException("boom");
                     })),
             settingsController,
@@ -76,13 +77,33 @@ class UpdateDispatcherTest {
     }
 
     @Test
-    void ignoresPlainTextUnknownCommandsAndOtherBots() {
-        dispatcher.consume(update(message(CHAT_ID, "private", "привет")));
+    void ignoresUnknownCommandsAndCommandsForOtherBots() {
         dispatcher.consume(update(message(CHAT_ID, "private", "/unknown")));
         dispatcher.consume(update(message(CHAT_ID, "private", "/w@OtherBot Минск")));
 
         assertThat(weatherRequests).isEmpty();
         verifyNoInteractions(sender, settingsController);
+    }
+
+    @Test
+    void routesCommandAliases() {
+        dispatcher.consume(update(message(CHAT_ID, "private", "/weather Минск")));
+
+        assertThat(weatherRequests).extracting(CommandRequest::args).containsExactly("Минск");
+    }
+
+    @Test
+    void passesPlainTextToSettingsWhichMayBeWaitingForInput() {
+        ChatContext context = new ChatContext(GROUP_ID, USER_ID, true, false);
+        BotReply saved = BotReply.text("сохранил");
+        when(settingsController.onText(context, "Минск, Брест")).thenReturn(Optional.of(saved));
+
+        dispatcher.consume(update(message(GROUP_ID, "group", "Минск, Брест")));
+        dispatcher.consume(update(message(GROUP_ID, "group", "просто болтаем")));
+
+        verify(sender).send(GROUP_ID, saved);
+        verify(settingsController).onText(context, "просто болтаем");
+        verify(sender, never()).send(anyLong(), eq(BotReply.text("просто болтаем")));
     }
 
     @Test
@@ -148,14 +169,16 @@ class UpdateDispatcherTest {
     }
 
     @Test
-    void ignoresRepliesToPeople() {
+    void treatsRepliesToPeopleAsPlainText() {
         Message original = message(GROUP_ID, "group", "кто идёт?");
         Message answer = message(GROUP_ID, "group", "я");
         answer.setReplyToMessage(original);
 
         dispatcher.consume(update(answer));
 
-        verifyNoInteractions(settingsController, sender);
+        verify(settingsController, never()).onReply(any(), anyString(), anyString());
+        verify(settingsController).onText(new ChatContext(GROUP_ID, USER_ID, true, false), "я");
+        verifyNoInteractions(sender);
     }
 
     @Test
@@ -228,8 +251,13 @@ class UpdateDispatcherTest {
         return user;
     }
 
-    private record StubHandler(String command, boolean acceptsEditedMessages,
+    private record StubHandler(String command, List<String> aliases, boolean acceptsEditedMessages,
                                Function<CommandRequest, BotReply> behaviour) implements CommandHandler {
+
+        @Override
+        public String description() {
+            return command;
+        }
 
         @Override
         public BotReply handle(CommandRequest request) {

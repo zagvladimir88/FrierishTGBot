@@ -4,10 +4,12 @@ import com.zagvladimir.fraerish.command.BotReply;
 import com.zagvladimir.fraerish.command.CommandHandler;
 import com.zagvladimir.fraerish.command.CommandRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+@Order(4)
 @Component
 @RequiredArgsConstructor
 public class ImageSearchHandler implements CommandHandler {
@@ -22,6 +24,11 @@ public class ImageSearchHandler implements CommandHandler {
     @Override
     public String command() {
         return "/g";
+    }
+
+    @Override
+    public String description() {
+        return "Картинки: /g котики";
     }
 
     @Override

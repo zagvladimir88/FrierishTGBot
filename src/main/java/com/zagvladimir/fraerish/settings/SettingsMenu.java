@@ -29,8 +29,8 @@ public class SettingsMenu {
     static final String WEATHER = "s:weather";
     static final String MAIN = "s:menu";
 
-    static final String CITIES_PROMPT = "🏙 Напишите города через запятую ответом на это сообщение.";
-    static final String CURRENCIES_PROMPT = "💱 Напишите валюты через запятую ответом на это сообщение.";
+    static final String CITIES_PROMPT = "🏙 Напишите города через запятую";
+    static final String CURRENCIES_PROMPT = "💱 Напишите валюты через запятую";
 
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
     private static final int HOURS_PER_ROW = 6;
@@ -74,11 +74,11 @@ public class SettingsMenu {
     }
 
     public BotReply.Prompt citiesPrompt() {
-        return new BotReply.Prompt(CITIES_PROMPT + "\nНапример: Минск, Брест, Нижний Новгород");
+        return new BotReply.Prompt(CITIES_PROMPT + " следующим сообщением.\nНапример: Минск, Брест, Нижний Новгород");
     }
 
     public BotReply.Prompt currenciesPrompt() {
-        return new BotReply.Prompt(CURRENCIES_PROMPT + "\nНапример: USD, EUR, BTC");
+        return new BotReply.Prompt(CURRENCIES_PROMPT + " следующим сообщением.\nНапример: USD, EUR, BTC");
     }
 
     public Optional<PromptKind> promptKind(String promptText) {

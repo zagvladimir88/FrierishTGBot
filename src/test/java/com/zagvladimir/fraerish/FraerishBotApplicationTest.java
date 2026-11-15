@@ -6,7 +6,6 @@ import com.zagvladimir.fraerish.digest.ChatSettings;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationContext;
 import org.springframework.test.annotation.DirtiesContext;
 
 import java.time.LocalDate;
@@ -28,15 +27,15 @@ class FraerishBotApplicationTest {
     private static final LocalDate TODAY = LocalDate.of(2026, 11, 16);
 
     @Autowired
-    private ApplicationContext context;
+    private List<CommandHandler> handlers;
     @Autowired
     private ChatRepository chatRepository;
 
     @Test
     void registersEveryCommandHandler() {
-        assertThat(context.getBeansOfType(CommandHandler.class).values())
+        assertThat(handlers)
                 .extracting(CommandHandler::command)
-                .containsExactlyInAnyOrder("/start", "/stop", "/settings", "/w", "/exchange", "/g", "/c");
+                .containsExactly("/start", "/w", "/e", "/g", "/c", "/s", "/stop");
     }
 
     @Test

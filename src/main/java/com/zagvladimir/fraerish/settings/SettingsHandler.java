@@ -4,8 +4,12 @@ import com.zagvladimir.fraerish.command.BotReply;
 import com.zagvladimir.fraerish.command.CommandHandler;
 import com.zagvladimir.fraerish.command.CommandRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
+@Order(6)
 @Component
 @RequiredArgsConstructor
 public class SettingsHandler implements CommandHandler {
@@ -15,7 +19,17 @@ public class SettingsHandler implements CommandHandler {
 
     @Override
     public String command() {
-        return "/settings";
+        return "/s";
+    }
+
+    @Override
+    public List<String> aliases() {
+        return List.of("/settings");
+    }
+
+    @Override
+    public String description() {
+        return "Настройки ежедневной сводки";
     }
 
     @Override
