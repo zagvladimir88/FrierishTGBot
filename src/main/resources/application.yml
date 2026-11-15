@@ -32,6 +32,13 @@ bot:
     active-to: "22:00"
     lookahead: 3h
     min-chance: 0.5
+  video:
+    enabled: true
+    yt-dlp-path: yt-dlp
+    timeout: 120s
+    max-size: 50MB
+    max-height: 720
+    concurrency: 2
 
 integration:
   open-weather:

@@ -11,6 +11,8 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
+import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
 import org.telegram.telegrambots.meta.api.objects.ApiResponse;
 import org.telegram.telegrambots.meta.api.objects.media.InputMedia;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -149,6 +151,40 @@ class BotSenderTest {
         verify(telegramClient).execute(captor.capture());
         assertThat(captor.getValue().getCallbackQueryId()).isEqualTo("query-1");
         assertThat(captor.getValue().getText()).isEqualTo("Сводка включена");
+    }
+
+    @Test
+    void uploadsVideoAsReplyWithSizeForProperPreview() throws TelegramApiException {
+        BotReply.Video video = new BotReply.Video("video.mp4", new byte[]{1, 2}, 1080, 1920, 15);
+
+        assertThat(sender.send(CHAT_ID, video, 7)).isEqualTo(SendResult.SENT);
+
+        ArgumentCaptor<SendVideo> captor = ArgumentCaptor.forClass(SendVideo.class);
+        verify(telegramClient).execute(captor.capture());
+        SendVideo sent = captor.getValue();
+        assertThat(sent.getVideo().isNew()).isTrue();
+        assertThat(sent.getVideo().getMediaName()).isEqualTo("video.mp4");
+        assertThat(sent.getWidth()).isEqualTo(1080);
+        assertThat(sent.getHeight()).isEqualTo(1920);
+        assertThat(sent.getDuration()).isEqualTo(15);
+        assertThat(sent.getSupportsStreaming()).isTrue();
+        assertThat(sent.getReplyToMessageId()).isEqualTo(7);
+    }
+
+    @Test
+    void repliesWithTextToMessage() throws TelegramApiException {
+        sender.send(CHAT_ID, BotReply.text("не вышло"), 7);
+
+        assertThat(captureSentText().getReplyToMessageId()).isEqualTo(7);
+    }
+
+    @Test
+    void showsVideoUploadStatus() throws TelegramApiException {
+        sender.showUploadingVideo(CHAT_ID);
+
+        ArgumentCaptor<SendChatAction> captor = ArgumentCaptor.forClass(SendChatAction.class);
+        verify(telegramClient).execute(captor.capture());
+        assertThat(captor.getValue().getAction()).isEqualTo("upload_video");
     }
 
     @Test

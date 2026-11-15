@@ -8,6 +8,9 @@ import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
+import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
+import org.telegram.telegrambots.meta.api.methods.ActionType;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
@@ -36,9 +39,26 @@ public class BotSender {
     private final TelegramClient telegramClient;
 
     public SendResult send(long chatId, BotReply reply) {
+        return send(chatId, reply, null);
+    }
+
+    public SendResult send(long chatId, BotReply reply, Integer replyToMessageId) {
         try {
             switch (reply) {
-                case BotReply.Text text -> sendText(chatId, text.text());
+                case BotReply.Text text -> telegramClient.execute(SendMessage.builder()
+                        .chatId(chatId)
+                        .text(text.text())
+                        .replyToMessageId(replyToMessageId)
+                        .build());
+                case BotReply.Video video -> telegramClient.execute(SendVideo.builder()
+                        .chatId(chatId)
+                        .video(new InputFile(new ByteArrayInputStream(video.content()), video.fileName()))
+                        .width(video.width())
+                        .height(video.height())
+                        .duration(video.duration())
+                        .supportsStreaming(true)
+                        .replyToMessageId(replyToMessageId)
+                        .build());
                 case BotReply.Photos photos -> sendPhotos(chatId, photos.photos());
                 case BotReply.Menu menu -> telegramClient.execute(SendMessage.builder()
                         .chatId(chatId)
@@ -77,6 +97,14 @@ public class BotSender {
             if (!e.getMessage().contains(MESSAGE_NOT_MODIFIED)) {
                 log.error("Failed to update menu in chat {}: {}", chatId, e.getMessage());
             }
+        }
+    }
+
+    public void showUploadingVideo(long chatId) {
+        try {
+            telegramClient.execute(SendChatAction.builder().chatId(chatId).action(ActionType.UPLOAD_VIDEO.toString()).build());
+        } catch (TelegramApiException e) {
+            log.debug("Failed to show upload status in chat {}: {}", chatId, e.getMessage());
         }
     }
 
