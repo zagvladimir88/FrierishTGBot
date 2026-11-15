@@ -25,7 +25,7 @@ class ExchangeHandlerTest {
 
     private final RateService rateService = mock(RateService.class);
     private final ChatRepository chatRepository = mock(ChatRepository.class);
-    private final ExchangeHandler handler = new ExchangeHandler(rateService, chatRepository, PROPERTIES);
+    private final ExchangeHandler handler = new ExchangeHandler(rateService, new CurrencyConverter(rateService), chatRepository, PROPERTIES);
 
     @Test
     void showsEveryRequestedCurrency() {

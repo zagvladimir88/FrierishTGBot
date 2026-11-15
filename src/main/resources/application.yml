@@ -32,6 +32,8 @@ bot:
     active-to: "22:00"
     lookahead: 3h
     min-chance: 0.5
+  stats:
+    weekly-cron: "0 0 20 * * SUN"
   video:
     enabled: true
     yt-dlp-path: yt-dlp

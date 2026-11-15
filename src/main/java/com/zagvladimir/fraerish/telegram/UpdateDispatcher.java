@@ -7,6 +7,7 @@ import com.zagvladimir.fraerish.command.CommandRequest;
 import com.zagvladimir.fraerish.command.ParsedCommand;
 import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsController;
+import com.zagvladimir.fraerish.stats.ChatStats;
 import com.zagvladimir.fraerish.video.VideoLinkListener;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -34,17 +35,20 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
     private final Map<String, CommandHandler> handlers;
     private final SettingsController settingsController;
     private final VideoLinkListener videoLinkListener;
+    private final ChatStats chatStats;
     private final BotSender sender;
     private final BotProperties properties;
 
     public UpdateDispatcher(List<CommandHandler> handlers, SettingsController settingsController,
-                            VideoLinkListener videoLinkListener, BotSender sender, BotProperties properties) {
+                            VideoLinkListener videoLinkListener, ChatStats chatStats,
+                            BotSender sender, BotProperties properties) {
         this.handlers = handlers.stream()
                 .flatMap(handler -> Stream.concat(Stream.of(handler.command()), handler.aliases().stream())
                         .map(name -> Map.entry(name, handler)))
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
         this.settingsController = settingsController;
         this.videoLinkListener = videoLinkListener;
+        this.chatStats = chatStats;
         this.sender = sender;
         this.properties = properties;
     }
@@ -63,6 +67,9 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
     private void onMessage(Message message, boolean edited) {
         if (!edited && onMembershipChange(message)) {
             return;
+        }
+        if (!edited) {
+            countMessage(message);
         }
         if (!message.hasText()) {
             return;
@@ -84,6 +91,24 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
         } else {
             reply(context, () -> settingsController.onText(context, message.getText()));
         }
+    }
+
+    private void countMessage(Message message) {
+        User author = message.getFrom();
+        if (author == null || Boolean.TRUE.equals(author.getIsBot()) || !isGroup(message.getChat())) {
+            return;
+        }
+        chatStats.countMessage(message.getChatId(), author.getId(), displayName(author));
+    }
+
+    private static String displayName(User user) {
+        String name = Stream.of(user.getFirstName(), user.getLastName())
+                .filter(part -> part != null && !part.isBlank())
+                .collect(Collectors.joining(" "));
+        if (!name.isBlank()) {
+            return name;
+        }
+        return user.getUserName() != null ? user.getUserName() : "id" + user.getId();
     }
 
     private boolean onMembershipChange(Message message) {

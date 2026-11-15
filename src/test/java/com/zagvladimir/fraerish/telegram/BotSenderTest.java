@@ -12,6 +12,8 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
+import org.telegram.telegrambots.meta.api.methods.polls.SendPoll;
+import org.telegram.telegrambots.meta.api.objects.polls.input.InputPollOption;
 import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
 import org.telegram.telegrambots.meta.api.objects.ApiResponse;
 import org.telegram.telegrambots.meta.api.objects.media.InputMedia;
@@ -119,6 +121,17 @@ class BotSenderTest {
         InlineKeyboardMarkup keyboard = (InlineKeyboardMarkup) sent.getReplyMarkup();
         assertThat(keyboard.getKeyboard()).hasSize(2);
         assertThat(keyboard.getKeyboard().get(1)).extracting(InlineKeyboardButton::getCallbackData).containsExactly("s:time", "s:cities");
+    }
+
+    @Test
+    void sendsPublicPoll() throws TelegramApiException {
+        assertThat(sender.send(CHAT_ID, new BotReply.Poll("Куда идём?", List.of("Бар", "Кино")))).isEqualTo(SendResult.SENT);
+
+        ArgumentCaptor<SendPoll> captor = ArgumentCaptor.forClass(SendPoll.class);
+        verify(telegramClient).execute(captor.capture());
+        assertThat(captor.getValue().getQuestion()).isEqualTo("Куда идём?");
+        assertThat(captor.getValue().getOptions()).extracting(InputPollOption::getText).containsExactly("Бар", "Кино");
+        assertThat(captor.getValue().getIsAnonymous()).isFalse();
     }
 
     @Test

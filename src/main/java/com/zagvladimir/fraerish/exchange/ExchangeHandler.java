@@ -12,6 +12,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Order(3)
@@ -19,9 +20,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ExchangeHandler implements CommandHandler {
 
-    static final String USAGE = "Укажите валюту или несколько через запятую: /e USD, EUR, BTC";
+    static final String USAGE = """
+            Укажите валюту или несколько через запятую: /e USD, EUR, BTC
+            Пересчитать сумму: /e 100 usd eur, /e 0.5 btc, /e 50$""";
 
     private final RateService rateService;
+    private final CurrencyConverter currencyConverter;
     private final ChatRepository chatRepository;
     private final DigestProperties digestProperties;
 
@@ -37,11 +41,15 @@ public class ExchangeHandler implements CommandHandler {
 
     @Override
     public String description() {
-        return "Курсы: /e USD, EUR, BTC";
+        return "Курсы и пересчёт: /e USD, EUR или /e 100 usd eur";
     }
 
     @Override
     public BotReply handle(CommandRequest request) {
+        Optional<Conversion> conversion = Conversion.parse(request.args());
+        if (conversion.isPresent()) {
+            return BotReply.text(currencyConverter.convert(conversion.get()));
+        }
         List<String> codes = request.hasArgs() ? ListInput.currencies(request.args()) : savedCurrencies(request.chatId());
         if (codes.isEmpty()) {
             return BotReply.text(USAGE);

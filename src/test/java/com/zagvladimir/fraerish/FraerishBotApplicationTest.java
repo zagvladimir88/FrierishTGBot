@@ -3,6 +3,8 @@ package com.zagvladimir.fraerish;
 import com.zagvladimir.fraerish.command.CommandHandler;
 import com.zagvladimir.fraerish.digest.ChatRepository;
 import com.zagvladimir.fraerish.digest.ChatSettings;
+import com.zagvladimir.fraerish.stats.MessageStatsRepository;
+import com.zagvladimir.fraerish.stats.UserActivity;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,12 +32,14 @@ class FraerishBotApplicationTest {
     private List<CommandHandler> handlers;
     @Autowired
     private ChatRepository chatRepository;
+    @Autowired
+    private MessageStatsRepository messageStatsRepository;
 
     @Test
     void registersEveryCommandHandler() {
         assertThat(handlers)
                 .extracting(CommandHandler::command)
-                .containsExactly("/start", "/w", "/e", "/g", "/c", "/s", "/stop");
+                .containsExactly("/start", "/w", "/e", "/g", "/c", "/pick", "/poll", "/top", "/s", "/stop");
     }
 
     @Test
@@ -93,6 +97,23 @@ class FraerishBotApplicationTest {
                 .extracting(ChatSettings::chatId)
                 .filteredOn(chatId -> chatId > 300L)
                 .containsExactly(301L, 304L);
+    }
+
+    @Test
+    void countsMessagesPerUserAndDay() {
+        long group = -900L;
+        messageStatsRepository.countMessage(group, 1L, "Vladimir", TODAY);
+        messageStatsRepository.countMessage(group, 1L, "Vladimir Z", TODAY);
+        messageStatsRepository.countMessage(group, 2L, "Игорь", TODAY.minusDays(1));
+        messageStatsRepository.countMessage(group, 2L, "Игорь", TODAY);
+        messageStatsRepository.countMessage(group, 2L, "Игорь", TODAY);
+        messageStatsRepository.countMessage(group, 3L, "Старый", TODAY.minusDays(10));
+
+        assertThat(messageStatsRepository.top(group, TODAY.minusDays(6), TODAY, 10))
+                .containsExactly(new UserActivity("Игорь", 3), new UserActivity("Vladimir Z", 2));
+        assertThat(messageStatsRepository.total(group, TODAY.minusDays(6), TODAY)).isEqualTo(5L);
+        assertThat(messageStatsRepository.chatsWithActivity(TODAY.minusDays(6), TODAY)).contains(group);
+        assertThat(messageStatsRepository.top(group, TODAY.minusDays(30), TODAY, 1)).containsExactly(new UserActivity("Игорь", 3));
     }
 
     private void enabledAt(long chatId, LocalTime time) {

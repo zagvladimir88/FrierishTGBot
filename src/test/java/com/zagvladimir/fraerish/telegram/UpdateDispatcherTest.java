@@ -6,6 +6,7 @@ import com.zagvladimir.fraerish.command.CommandHandler;
 import com.zagvladimir.fraerish.command.CommandRequest;
 import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsController;
+import com.zagvladimir.fraerish.stats.ChatStats;
 import com.zagvladimir.fraerish.video.VideoLinkListener;
 import org.junit.jupiter.api.Test;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 class UpdateDispatcherTest {
@@ -42,6 +44,7 @@ class UpdateDispatcherTest {
     private final BotSender sender = mock(BotSender.class);
     private final SettingsController settingsController = mock(SettingsController.class);
     private final VideoLinkListener videoLinkListener = mock(VideoLinkListener.class);
+    private final ChatStats chatStats = mock(ChatStats.class);
     private final UpdateDispatcher dispatcher = new UpdateDispatcher(
             List.of(
                     new StubHandler("/w", List.of("/weather"), false, request -> {
@@ -57,8 +60,29 @@ class UpdateDispatcherTest {
                     })),
             settingsController,
             videoLinkListener,
+            chatStats,
             sender,
             new BotProperties("token", BOT_NAME));
+
+    @Test
+    void countsGroupMessagesOfPeopleOnly() {
+        Message named = message(GROUP_ID, "supergroup", "привет");
+        User vladimir = new User(USER_ID, "Vladimir", false);
+        vladimir.setLastName("Z");
+        named.setFrom(vladimir);
+        Message fromBot = message(GROUP_ID, "group", "я бот");
+        fromBot.setFrom(bot("OtherBot"));
+
+        dispatcher.consume(update(named));
+        dispatcher.consume(update(fromBot));
+        dispatcher.consume(update(message(CHAT_ID, "private", "в личке")));
+        Update edited = new Update();
+        edited.setEditedMessage(message(GROUP_ID, "group", "исправил"));
+        dispatcher.consume(edited);
+
+        verify(chatStats).countMessage(GROUP_ID, USER_ID, "Vladimir Z");
+        verifyNoMoreInteractions(chatStats);
+    }
 
     @Test
     void handsVideoLinksToVideoListenerInsteadOfSettings() {

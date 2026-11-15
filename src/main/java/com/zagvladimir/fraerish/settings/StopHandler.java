@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-@Order(7)
+@Order(10)
 @Component
 @RequiredArgsConstructor
 public class StopHandler implements CommandHandler {

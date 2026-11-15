@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-@Order(6)
+@Order(9)
 @Component
 @RequiredArgsConstructor
 public class SettingsHandler implements CommandHandler {
