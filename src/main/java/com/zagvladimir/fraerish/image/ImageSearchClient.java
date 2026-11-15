@@ -4,5 +4,5 @@ import java.util.List;
 
 public interface ImageSearchClient {
 
-    List<String> findImageUrls(String query, int limit);
+    List<ImageCandidate> search(String query, int limit);
 }

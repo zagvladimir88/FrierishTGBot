@@ -15,7 +15,7 @@ class SearxngImageSearchClientTest {
     private final RestClient.Builder restClientBuilder = RestClient.builder();
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
     private final SearxngImageSearchClient client = new SearxngImageSearchClient(
-            restClientBuilder, new SearxngProperties("http://searxng.test", 3, 1));
+            restClientBuilder, new SearxngProperties("http://searxng.test", 10, 3, 1));
 
     @AfterEach
     void verifyRequests() {
@@ -23,34 +23,35 @@ class SearxngImageSearchClientTest {
     }
 
     @Test
-    void returnsDistinctHttpImageUrlsUpToLimit() {
+    void returnsDistinctCandidatesWithHttpSourcesUpToLimit() {
         expectQuery("котики").andRespond(withSuccess("""
                 {"query": "котики", "results": [
-                  {"url": "https://site.test/page", "img_src": "https://img.test/1.jpg", "engine": "bing images"},
-                  {"img_src": null},
-                  {"img_src": "data:image/png;base64,AAAA"},
-                  {"img_src": "//cdn.test/2.png"},
-                  {"img_src": "https://img.test/1.jpg"},
+                  {"url": "https://site.test/page", "img_src": "https://img.test/1.jpg", "thumbnail_src": "https://thumb.test/1.jpg"},
+                  {"img_src": null, "thumbnail_src": null},
+                  {"img_src": "data:image/png;base64,AAAA", "thumbnail_src": "//thumb.test/2.jpg"},
+                  {"img_src": "https://img.test/1.jpg", "thumbnail_src": "https://thumb.test/1.jpg"},
                   {"img_src": "http://img.test/3.jpg"},
                   {"img_src": "https://img.test/4.jpg"}
                 ]}""", MediaType.APPLICATION_JSON));
 
-        assertThat(client.findImageUrls("котики", 3))
-                .containsExactly("https://img.test/1.jpg", "https://cdn.test/2.png", "http://img.test/3.jpg");
+        assertThat(client.search("котики", 3)).containsExactly(
+                new ImageCandidate("https://img.test/1.jpg", "https://thumb.test/1.jpg"),
+                new ImageCandidate(null, "https://thumb.test/2.jpg"),
+                new ImageCandidate("http://img.test/3.jpg", null));
     }
 
     @Test
     void returnsEmptyListWhenNothingFound() {
         expectQuery("ничего").andRespond(withSuccess("{\"results\": []}", MediaType.APPLICATION_JSON));
 
-        assertThat(client.findImageUrls("ничего", 3)).isEmpty();
+        assertThat(client.search("ничего", 3)).isEmpty();
     }
 
     @Test
     void toleratesMissingResults() {
         expectQuery("ничего").andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
-        assertThat(client.findImageUrls("ничего", 3)).isEmpty();
+        assertThat(client.search("ничего", 3)).isEmpty();
     }
 
     private ResponseActions expectQuery(String query) {

@@ -7,6 +7,7 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.ApiResponse;
+import org.telegram.telegrambots.meta.api.objects.media.InputMedia;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
@@ -18,12 +19,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 class BotSenderTest {
 
     private static final long CHAT_ID = 42L;
-    private static final List<String> TWO_IMAGES = List.of("https://img.test/1.jpg", "https://img.test/2.jpg");
+    private static final BotReply.Photo CAT = new BotReply.Photo("image-1.jpg", new byte[]{1});
+    private static final BotReply.Photo DOG = new BotReply.Photo("image-2.png", new byte[]{2});
 
     private final TelegramClient telegramClient = mock(TelegramClient.class);
     private final BotSender sender = new BotSender(telegramClient);
@@ -38,32 +41,46 @@ class BotSenderTest {
     }
 
     @Test
-    void sendsSingleImageAsPhotoBecauseMediaGroupNeedsAtLeastTwo() throws TelegramApiException {
-        assertThat(sender.send(CHAT_ID, BotReply.photos(List.of("https://img.test/1.jpg")))).isEqualTo(SendResult.SENT);
+    void uploadsSinglePhotoBecauseAlbumNeedsAtLeastTwo() throws TelegramApiException {
+        assertThat(sender.send(CHAT_ID, BotReply.photos(List.of(CAT)))).isEqualTo(SendResult.SENT);
 
         ArgumentCaptor<SendPhoto> captor = ArgumentCaptor.forClass(SendPhoto.class);
         verify(telegramClient).execute(captor.capture());
-        assertThat(captor.getValue().getPhoto().getAttachName()).isEqualTo("https://img.test/1.jpg");
+        assertThat(captor.getValue().getPhoto().isNew()).isTrue();
+        assertThat(captor.getValue().getPhoto().getMediaName()).isEqualTo("image-1.jpg");
         verify(telegramClient, never()).execute(any(SendMediaGroup.class));
     }
 
     @Test
-    void sendsSeveralImagesAsMediaGroup() throws TelegramApiException {
-        assertThat(sender.send(CHAT_ID, BotReply.photos(TWO_IMAGES))).isEqualTo(SendResult.SENT);
+    void uploadsSeveralPhotosAsAlbum() throws TelegramApiException {
+        assertThat(sender.send(CHAT_ID, BotReply.photos(List.of(CAT, DOG)))).isEqualTo(SendResult.SENT);
 
         ArgumentCaptor<SendMediaGroup> captor = ArgumentCaptor.forClass(SendMediaGroup.class);
         verify(telegramClient).execute(captor.capture());
-        assertThat(captor.getValue().getMedias()).extracting("media").containsExactlyElementsOf(TWO_IMAGES);
+        assertThat(captor.getValue().getMedias())
+                .allMatch(InputMedia::isNewMedia)
+                .extracting(InputMedia::getMediaName)
+                .containsExactly("image-1.jpg", "image-2.png");
     }
 
     @Test
-    void fallsBackToLinksWhenTelegramCannotFetchImages() throws TelegramApiException {
-        doThrow(apiError(400, "Bad Request: wrong file identifier/HTTP URL specified"))
-                .when(telegramClient).execute(any(SendMediaGroup.class));
+    void sendsPhotosOneByOneWhenAlbumIsRejected() throws TelegramApiException {
+        doThrow(apiError(400, "Bad Request: PHOTO_INVALID_DIMENSIONS")).when(telegramClient).execute(any(SendMediaGroup.class));
 
-        assertThat(sender.send(CHAT_ID, BotReply.photos(TWO_IMAGES))).isEqualTo(SendResult.SENT);
+        assertThat(sender.send(CHAT_ID, BotReply.photos(List.of(CAT, DOG)))).isEqualTo(SendResult.SENT);
 
-        assertThat(captureSentText().getText()).isEqualTo("https://img.test/1.jpg\nhttps://img.test/2.jpg");
+        verify(telegramClient, times(2)).execute(any(SendPhoto.class));
+        verify(telegramClient, never()).execute(any(SendMessage.class));
+    }
+
+    @Test
+    void apologisesWhenTelegramRejectsEveryPhoto() throws TelegramApiException {
+        doThrow(apiError(400, "Bad Request: PHOTO_INVALID_DIMENSIONS")).when(telegramClient).execute(any(SendMediaGroup.class));
+        doThrow(apiError(400, "Bad Request: PHOTO_INVALID_DIMENSIONS")).when(telegramClient).execute(any(SendPhoto.class));
+
+        assertThat(sender.send(CHAT_ID, BotReply.photos(List.of(CAT, DOG)))).isEqualTo(SendResult.SENT);
+
+        assertThat(captureSentText().getText()).isEqualTo(BotSender.PHOTOS_REJECTED);
     }
 
     @Test
@@ -74,10 +91,11 @@ class BotSenderTest {
     }
 
     @Test
-    void reportsBlockedChatForImagesWithoutFallback() throws TelegramApiException {
+    void reportsBlockedChatForPhotosWithoutRetrying() throws TelegramApiException {
         doThrow(apiError(403, "Forbidden: bot was blocked by the user")).when(telegramClient).execute(any(SendMediaGroup.class));
 
-        assertThat(sender.send(CHAT_ID, BotReply.photos(TWO_IMAGES))).isEqualTo(SendResult.BLOCKED);
+        assertThat(sender.send(CHAT_ID, BotReply.photos(List.of(CAT, DOG)))).isEqualTo(SendResult.BLOCKED);
+        verify(telegramClient, never()).execute(any(SendPhoto.class));
         verify(telegramClient, never()).execute(any(SendMessage.class));
     }
 

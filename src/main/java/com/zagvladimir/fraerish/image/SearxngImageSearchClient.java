@@ -4,7 +4,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
-import java.util.Objects;
 
 @Component
 public class SearxngImageSearchClient implements ImageSearchClient {
@@ -18,7 +17,7 @@ public class SearxngImageSearchClient implements ImageSearchClient {
     }
 
     @Override
-    public List<String> findImageUrls(String query, int limit) {
+    public List<ImageCandidate> search(String query, int limit) {
         SearxngSearchResponse response = restClient.get()
                 .uri("/search?q={query}&format=json&categories=images&safesearch={safesearch}", query, safesearch)
                 .retrieve()
@@ -27,16 +26,18 @@ public class SearxngImageSearchClient implements ImageSearchClient {
             return List.of();
         }
         return response.resultsOrEmpty().stream()
-                .map(SearxngSearchResponse.Result::imageUrl)
-                .filter(Objects::nonNull)
-                .map(SearxngImageSearchClient::withScheme)
-                .filter(url -> url.startsWith("http://") || url.startsWith("https://"))
+                .map(result -> new ImageCandidate(httpUrlOrNull(result.imageUrl()), httpUrlOrNull(result.thumbnailUrl())))
+                .filter(ImageCandidate::hasSources)
                 .distinct()
                 .limit(limit)
                 .toList();
     }
 
-    private static String withScheme(String url) {
-        return url.startsWith("//") ? "https:" + url : url;
+    private static String httpUrlOrNull(String url) {
+        if (url == null) {
+            return null;
+        }
+        String withScheme = url.startsWith("//") ? "https:" + url : url;
+        return withScheme.startsWith("http://") || withScheme.startsWith("https://") ? withScheme : null;
     }
 }

@@ -8,13 +8,16 @@ public sealed interface BotReply {
         return new Text(text);
     }
 
-    static BotReply photos(List<String> urls) {
-        return new Photos(List.copyOf(urls));
+    static BotReply photos(List<Photo> photos) {
+        return new Photos(List.copyOf(photos));
     }
 
     record Text(String text) implements BotReply {
     }
 
-    record Photos(List<String> urls) implements BotReply {
+    record Photos(List<Photo> photos) implements BotReply {
+    }
+
+    record Photo(String fileName, byte[] content) {
     }
 }

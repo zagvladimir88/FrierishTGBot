@@ -34,5 +34,11 @@ integration:
     base-url: https://api.nbrb.by
   searxng:
     base-url: ${SEARXNG_URL:http://searxng:8080}
+    candidates: 10
     max-images: 3
     safesearch: 1
+  image-download:
+    connect-timeout: 3s
+    read-timeout: 5s
+    total-timeout: 10s
+    max-size: 10MB
