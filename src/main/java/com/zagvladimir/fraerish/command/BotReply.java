@@ -18,6 +18,19 @@ public sealed interface BotReply {
     record Photos(List<Photo> photos) implements BotReply {
     }
 
+    record Menu(String text, List<List<Button>> keyboard) implements BotReply {
+
+        public Menu {
+            keyboard = keyboard.stream().map(List::copyOf).toList();
+        }
+    }
+
+    record Prompt(String text) implements BotReply {
+    }
+
     record Photo(String fileName, byte[] content) {
+    }
+
+    record Button(String text, String data) {
     }
 }

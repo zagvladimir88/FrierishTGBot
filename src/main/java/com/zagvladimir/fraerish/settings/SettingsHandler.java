@@ -1,4 +1,4 @@
-package com.zagvladimir.fraerish.subscription;
+package com.zagvladimir.fraerish.settings;
 
 import com.zagvladimir.fraerish.command.BotReply;
 import com.zagvladimir.fraerish.command.CommandHandler;
@@ -8,20 +8,18 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class StopHandler implements CommandHandler {
+public class SettingsHandler implements CommandHandler {
 
-    static final String STOPPED = "Ежедневная рассылка отключена. Включить снова: /start";
-
-    private final ChatRepository chatRepository;
+    private final SettingsService settingsService;
+    private final SettingsMenu settingsMenu;
 
     @Override
     public String command() {
-        return "/stop";
+        return "/settings";
     }
 
     @Override
     public BotReply handle(CommandRequest request) {
-        chatRepository.deactivate(request.chatId());
-        return BotReply.text(STOPPED);
+        return settingsMenu.main(settingsService.settings(request.chatId()));
     }
 }

@@ -3,6 +3,11 @@ package com.zagvladimir.fraerish.telegram;
 import com.zagvladimir.fraerish.command.BotReply;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ForceReplyKeyboard;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
@@ -97,6 +102,53 @@ class BotSenderTest {
         assertThat(sender.send(CHAT_ID, BotReply.photos(List.of(CAT, DOG)))).isEqualTo(SendResult.BLOCKED);
         verify(telegramClient, never()).execute(any(SendPhoto.class));
         verify(telegramClient, never()).execute(any(SendMessage.class));
+    }
+
+    @Test
+    void sendsMenuWithInlineButtons() throws TelegramApiException {
+        BotReply.Menu menu = new BotReply.Menu("настройки", List.of(
+                List.of(new BotReply.Button("🔔 Включить", "s:on")),
+                List.of(new BotReply.Button("🕘 Время", "s:time"), new BotReply.Button("🏙 Города", "s:cities"))));
+
+        assertThat(sender.send(CHAT_ID, menu)).isEqualTo(SendResult.SENT);
+
+        SendMessage sent = captureSentText();
+        assertThat(sent.getText()).isEqualTo("настройки");
+        InlineKeyboardMarkup keyboard = (InlineKeyboardMarkup) sent.getReplyMarkup();
+        assertThat(keyboard.getKeyboard()).hasSize(2);
+        assertThat(keyboard.getKeyboard().get(1)).extracting(InlineKeyboardButton::getCallbackData).containsExactly("s:time", "s:cities");
+    }
+
+    @Test
+    void sendsPromptThatAsksForReply() throws TelegramApiException {
+        assertThat(sender.send(CHAT_ID, new BotReply.Prompt("🏙 Напишите города"))).isEqualTo(SendResult.SENT);
+
+        assertThat(captureSentText().getReplyMarkup()).isInstanceOf(ForceReplyKeyboard.class);
+    }
+
+    @Test
+    void editsMenuInPlaceAndIgnoresUnchangedMessage() throws TelegramApiException {
+        BotReply.Menu menu = new BotReply.Menu("настройки", List.of(List.of(new BotReply.Button("« Назад", "s:menu"))));
+
+        sender.editMenu(CHAT_ID, 99, menu);
+
+        ArgumentCaptor<EditMessageText> captor = ArgumentCaptor.forClass(EditMessageText.class);
+        verify(telegramClient).execute(captor.capture());
+        assertThat(captor.getValue().getMessageId()).isEqualTo(99);
+        assertThat(captor.getValue().getText()).isEqualTo("настройки");
+
+        doThrow(apiError(400, "Bad Request: message is not modified")).when(telegramClient).execute(any(EditMessageText.class));
+        sender.editMenu(CHAT_ID, 99, menu);
+    }
+
+    @Test
+    void answersButtonPress() throws TelegramApiException {
+        sender.answerButton("query-1", "Сводка включена");
+
+        ArgumentCaptor<AnswerCallbackQuery> captor = ArgumentCaptor.forClass(AnswerCallbackQuery.class);
+        verify(telegramClient).execute(captor.capture());
+        assertThat(captor.getValue().getCallbackQueryId()).isEqualTo("query-1");
+        assertThat(captor.getValue().getText()).isEqualTo("Сводка включена");
     }
 
     @Test

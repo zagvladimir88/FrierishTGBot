@@ -3,29 +3,22 @@ package com.zagvladimir.fraerish.weather;
 import com.zagvladimir.fraerish.command.BotReply;
 import com.zagvladimir.fraerish.command.CommandHandler;
 import com.zagvladimir.fraerish.command.CommandRequest;
+import com.zagvladimir.fraerish.command.ListInput;
+import com.zagvladimir.fraerish.digest.DigestProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpClientErrorException;
 
-import java.util.Locale;
-import java.util.Map;
+import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Component
 @RequiredArgsConstructor
 public class WeatherHandler implements CommandHandler {
 
-    static final String USAGE = "Укажите город: /w Минск";
-    static final String CITY_NOT_FOUND = "Incorrect city name";
+    static final String USAGE = "Укажите город или несколько через запятую: /w Минск, Брест";
 
-    private static final Map<String, String> EMOJI_BY_CONDITION = Map.of(
-            "clear", "☀️",
-            "clouds", "☁️",
-            "rain", "🌧️",
-            "snow", "❄️");
-
-    private final OpenWeatherClient openWeatherClient;
+    private final WeatherService weatherService;
+    private final DigestProperties digestProperties;
 
     @Override
     public String command() {
@@ -34,26 +27,14 @@ public class WeatherHandler implements CommandHandler {
 
     @Override
     public BotReply handle(CommandRequest request) {
-        return request.hasArgs() ? forecast(request.args()) : BotReply.text(USAGE);
-    }
-
-    public BotReply forecast(String city) {
-        try {
-            return BotReply.text(format(openWeatherClient.currentWeather(city)));
-        } catch (HttpClientErrorException.NotFound e) {
-            return BotReply.text(CITY_NOT_FOUND);
+        List<String> cities = ListInput.cities(request.args());
+        if (cities.isEmpty()) {
+            return BotReply.text(USAGE);
         }
-    }
-
-    private static String format(CurrentWeather weather) {
-        CurrentWeather.Condition condition = weather.condition();
-        String emoji = EMOJI_BY_CONDITION.getOrDefault(condition.main().toLowerCase(Locale.ROOT), "");
-        String summary = Stream.of(weather.name(), condition.description(), emoji)
-                .filter(part -> part != null && !part.isBlank())
-                .collect(Collectors.joining(" "));
-        return "%s\nТемпература %d°C, ощущается как %d°C".formatted(
-                summary,
-                Math.round(weather.main().temp()),
-                Math.round(weather.main().feelsLike()));
+        return BotReply.text(cities.stream()
+                .limit(digestProperties.maxCities())
+                .map(weatherService::lookup)
+                .map(CityWeather::text)
+                .collect(Collectors.joining("\n\n")));
     }
 }
