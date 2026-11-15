@@ -35,11 +35,23 @@ class WeatherHandlerTest {
         expectCity("Минск").andRespond(withSuccess("""
                 {"name": "Минск",
                  "weather": [{"id": 804, "main": "Clouds", "description": "пасмурно", "icon": "04d"}],
-                 "main": {"temp": -2.5, "feels_like": -6.1, "humidity": 80}}""", MediaType.APPLICATION_JSON));
+                 "main": {"temp": 0.84, "feels_like": -3.7, "humidity": 80}}""", MediaType.APPLICATION_JSON));
 
         BotReply reply = handler.handle(new CommandRequest(1, "Минск"));
 
-        assertThat(reply).isEqualTo(BotReply.text("Минск пасмурно ☁️ \nТемпература -2.5 ощущается как -6.1"));
+        assertThat(reply).isEqualTo(BotReply.text("Минск пасмурно ☁️\nТемпература 1°C, ощущается как -4°C"));
+    }
+
+    @Test
+    void roundsSmallNegativeTemperatureToZeroWithoutMinusSign() {
+        expectCity("Минск").andRespond(withSuccess("""
+                {"name": "Минск",
+                 "weather": [{"main": "Clear", "description": "ясно"}],
+                 "main": {"temp": -0.4, "feels_like": -2.5}}""", MediaType.APPLICATION_JSON));
+
+        BotReply reply = handler.handle(new CommandRequest(1, "Минск"));
+
+        assertThat(reply).isEqualTo(BotReply.text("Минск ясно ☀️\nТемпература 0°C, ощущается как -2°C"));
     }
 
     @Test
@@ -51,7 +63,7 @@ class WeatherHandlerTest {
 
         BotReply reply = handler.handle(new CommandRequest(1, "Нижний Новгород"));
 
-        assertThat(reply).isEqualTo(BotReply.text("Нижний Новгород дымка  \nТемпература 1.0 ощущается как -1.0"));
+        assertThat(reply).isEqualTo(BotReply.text("Нижний Новгород дымка\nТемпература 1°C, ощущается как -1°C"));
     }
 
     @Test

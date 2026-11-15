@@ -9,6 +9,8 @@ import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Component
 @RequiredArgsConstructor
@@ -45,11 +47,13 @@ public class WeatherHandler implements CommandHandler {
 
     private static String format(CurrentWeather weather) {
         CurrentWeather.Condition condition = weather.condition();
-        return "%s %s %s \nТемпература %s ощущается как %s".formatted(
-                weather.name(),
-                condition.description(),
-                EMOJI_BY_CONDITION.getOrDefault(condition.main().toLowerCase(Locale.ROOT), ""),
-                weather.main().temp(),
-                weather.main().feelsLike());
+        String emoji = EMOJI_BY_CONDITION.getOrDefault(condition.main().toLowerCase(Locale.ROOT), "");
+        String summary = Stream.of(weather.name(), condition.description(), emoji)
+                .filter(part -> part != null && !part.isBlank())
+                .collect(Collectors.joining(" "));
+        return "%s\nТемпература %d°C, ощущается как %d°C".formatted(
+                summary,
+                Math.round(weather.main().temp()),
+                Math.round(weather.main().feelsLike()));
     }
 }
