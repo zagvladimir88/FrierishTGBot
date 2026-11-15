@@ -30,7 +30,7 @@ public class StoryCommands {
     @Bean
     @Order(21)
     public CommandHandler storyAnswerHandler() {
-        return handler("/answer", "Ответ угадайки: /answer качалка", request -> storyService.answer(request.chatId(), request.args()));
+        return handler("/answer", "Закрыть угадайку вручную (админы): /answer качалка", request -> storyService.answer(request.context(), request.args()));
     }
 
     @Bean

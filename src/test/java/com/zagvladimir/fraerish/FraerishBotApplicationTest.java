@@ -16,6 +16,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -113,6 +114,8 @@ class FraerishBotApplicationTest {
         messageStatsRepository.countMessage(group, 2L, "Игорь", TODAY);
         messageStatsRepository.countMessage(group, 2L, "Игорь", TODAY);
         messageStatsRepository.countMessage(group, 3L, "Старый", TODAY.minusDays(10));
+        assertThat(messageStatsRepository.activeUsers(group, TODAY.minusDays(29), TODAY)).isEqualTo(3);
+        assertThat(messageStatsRepository.activeUsers(group, TODAY.minusDays(6), TODAY)).isEqualTo(2);
 
         assertThat(messageStatsRepository.top(group, TODAY.minusDays(6), TODAY, 10))
                 .containsExactly(new UserActivity("Игорь", 3), new UserActivity("Vladimir Z", 2));
@@ -142,6 +145,24 @@ class FraerishBotApplicationTest {
         assertThat(storyRepository.findByPollId("poll-a")).map(StoryGame::answerIndex).contains(1);
         assertThat(storyRepository.findOpenGame(group)).isEmpty();
         assertThat(storyRepository.votersFor(first.id(), 1)).containsExactly("Игорь");
+        assertThat(storyRepository.leaderboard(group, 10)).containsExactly(new StoryScore("Игорь", 1, 1), new StoryScore("Аня", 1, 2));
+
+        storyRepository.createGame(group, 12, "poll-c", options);
+        StoryGame third = storyRepository.findOpenGame(group).orElseThrow();
+        storyRepository.saveVote(third.id(), 1L, "Игорь", 0);
+        storyRepository.saveVote(third.id(), 2L, "Аня", 1);
+        storyRepository.startConfirmation(third.id(), 901, 2);
+        storyRepository.saveConfirmation(third.id(), 1L, 2);
+        storyRepository.saveConfirmation(third.id(), 1L, 1);
+        storyRepository.saveConfirmation(third.id(), 2L, 1);
+        StoryGame confirming = storyRepository.findOpenGame(group).orElseThrow();
+        assertThat(storyRepository.countVotes(third.id())).isEqualTo(2);
+        assertThat(confirming.confirmMessageId()).isEqualTo(901);
+        assertThat(confirming.votersSnapshot()).isEqualTo(2);
+        assertThat(confirming.majority()).isEqualTo(2);
+        assertThat(storyRepository.confirmationCounts(third.id())).isEqualTo(Map.of(1, 2L));
+        storyRepository.closeGame(third.id(), -1);
+        assertThat(storyRepository.findOpenGame(group)).isEmpty();
         assertThat(storyRepository.leaderboard(group, 10)).containsExactly(new StoryScore("Игорь", 1, 1), new StoryScore("Аня", 1, 2));
 
         assertThat(storyRepository.options(group)).isEmpty();

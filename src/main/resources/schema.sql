@@ -51,3 +51,14 @@ CREATE TABLE IF NOT EXISTS story_options
     chat_id BIGINT PRIMARY KEY,
     options VARCHAR(2000) NOT NULL
 );
+
+ALTER TABLE story_games ADD COLUMN IF NOT EXISTS confirm_message_id INT;
+ALTER TABLE story_games ADD COLUMN IF NOT EXISTS voters_snapshot INT;
+
+CREATE TABLE IF NOT EXISTS story_confirmations
+(
+    game_id      BIGINT NOT NULL,
+    user_id      BIGINT NOT NULL,
+    option_index INT    NOT NULL,
+    PRIMARY KEY (game_id, user_id)
+);
