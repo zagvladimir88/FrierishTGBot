@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -19,6 +21,7 @@ import java.util.stream.Stream;
 public class WeatherService {
 
     static final int FORECAST_SLOTS = 4;
+    static final int ALERT_SLOTS = 2;
 
     private static final Map<String, String> EMOJI_BY_CONDITION = Map.of(
             "clear", "☀️",
@@ -38,6 +41,16 @@ public class WeatherService {
 
     public CityWeather resolve(String city) {
         return fetchCurrent(city, CurrentWeather::name);
+    }
+
+    public Optional<PrecipitationAlert> precipitationAlert(String city, Instant now, Duration lookahead, double minChance) {
+        try {
+            Forecast forecast = openWeatherClient.forecast(city, ALERT_SLOTS);
+            return forecast == null ? Optional.empty() : PrecipitationWatch.upcoming(forecast, now, lookahead, minChance);
+        } catch (RestClientException e) {
+            log.warn("Forecast for {} is unavailable for alerts: {}", city, e.getMessage());
+            return Optional.empty();
+        }
     }
 
     private CityWeather fetchCurrent(String city, Function<CurrentWeather, String> text) {

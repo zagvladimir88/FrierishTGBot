@@ -55,6 +55,16 @@ public class ChatRepository {
                 .list();
     }
 
+    public List<ChatSettings> findWeatherAlertSubscribers() {
+        return jdbcClient.sql("SELECT * FROM chats WHERE status = :status AND weather_alerts = TRUE ORDER BY id")
+                .param("status", ACTIVE)
+                .query(ChatRepository::map)
+                .list()
+                .stream()
+                .filter(ChatSettings::receivesWeatherAlerts)
+                .toList();
+    }
+
     public void setEnabled(long chatId, boolean enabled) {
         update(chatId, "status = :value", enabled ? ACTIVE : NOT_ACTIVE);
     }
@@ -79,6 +89,10 @@ public class ChatRepository {
         update(chatId, "send_weather = :value", sendWeather);
     }
 
+    public void updateWeatherAlerts(long chatId, boolean weatherAlerts) {
+        update(chatId, "weather_alerts = :value", weatherAlerts);
+    }
+
     public void markDigestSent(long chatId, LocalDate date) {
         update(chatId, "last_digest_date = :value", date);
     }
@@ -99,7 +113,8 @@ public class ChatRepository {
                 split(row.getString("currencies")),
                 row.getBoolean("send_rates"),
                 row.getBoolean("send_weather"),
-                row.getObject("last_digest_date", LocalDate.class));
+                row.getObject("last_digest_date", LocalDate.class),
+                row.getBoolean("weather_alerts"));
     }
 
     private static List<String> split(String value) {

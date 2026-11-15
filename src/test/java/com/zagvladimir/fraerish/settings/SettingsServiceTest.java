@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
 class SettingsServiceTest {
 
     private static final long CHAT_ID = 7L;
-    private static final ChatSettings DEFAULTS = new ChatSettings(CHAT_ID, false, LocalTime.of(11, 0), List.of("Минск"), List.of("USD"), true, true, null);
+    private static final ChatSettings DEFAULTS = new ChatSettings(CHAT_ID, false, LocalTime.of(11, 0), List.of("Минск"), List.of("USD"), true, true, null, true);
     private static final DigestProperties PROPERTIES = new DigestProperties(ZoneId.of("Europe/Minsk"), "по Минску", Duration.ofMinutes(30), 3, 3);
 
     private final ChatRepository chatRepository = mock(ChatRepository.class);

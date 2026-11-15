@@ -12,7 +12,8 @@ public record ChatSettings(
         List<String> currencies,
         boolean sendRates,
         boolean sendWeather,
-        LocalDate lastDigestDate) {
+        LocalDate lastDigestDate,
+        boolean weatherAlerts) {
 
     public ChatSettings {
         cities = List.copyOf(cities);
@@ -29,5 +30,9 @@ public record ChatSettings(
 
     public boolean hasContent() {
         return includesRates() || includesWeather();
+    }
+
+    public boolean receivesWeatherAlerts() {
+        return enabled && weatherAlerts && !cities.isEmpty();
     }
 }

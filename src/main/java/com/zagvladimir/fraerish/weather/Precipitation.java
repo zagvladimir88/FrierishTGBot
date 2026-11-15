@@ -1,25 +1,32 @@
 package com.zagvladimir.fraerish.weather;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
 enum Precipitation {
 
-    THUNDERSTORM("гроза"),
-    SLEET("дождь со снегом"),
-    SNOW("снег"),
-    RAIN("дождь");
+    THUNDERSTORM("возможна гроза", "⛈️"),
+    SLEET("возможен дождь со снегом", "🌨️"),
+    SNOW("возможен снег", "❄️"),
+    RAIN("возможен дождь", "🌧️");
 
-    private final String description;
+    private final String possible;
+    private final String emoji;
 
-    Precipitation(String description) {
-        this.description = description;
+    Precipitation(String possible, String emoji) {
+        this.possible = possible;
+        this.emoji = emoji;
     }
 
-    String description() {
-        return description;
+    String possible() {
+        return possible;
+    }
+
+    String emoji() {
+        return emoji;
     }
 
     static Optional<Precipitation> of(String condition) {
@@ -40,5 +47,17 @@ enum Precipitation {
             return Optional.of(SLEET);
         }
         return present.stream().findFirst();
+    }
+
+    static Precipitation strongestOf(List<Forecast.Slot> wetSlots) {
+        return strongest(wetSlots.stream().map(slot -> of(slot.condition().main()).orElseThrow()).toList()).orElseThrow();
+    }
+
+    static boolean expectedIn(Forecast.Slot slot) {
+        return of(slot.condition().main()).isPresent();
+    }
+
+    static long chancePercent(List<Forecast.Slot> wetSlots) {
+        return Math.round(wetSlots.stream().mapToDouble(Forecast.Slot::pop).max().orElse(0) * 100);
     }
 }

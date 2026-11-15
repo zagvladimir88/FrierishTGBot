@@ -14,11 +14,11 @@ final class DigestTestData {
     }
 
     static ChatSettings chat(long chatId, LocalTime time, List<String> cities, List<String> currencies) {
-        return new ChatSettings(chatId, true, time, cities, currencies, true, true, null);
+        return new ChatSettings(chatId, true, time, cities, currencies, true, true, null, true);
     }
 
     static ChatSettings chat(long chatId, LocalTime time, List<String> cities, List<String> currencies,
                              boolean sendRates, boolean sendWeather, LocalDate lastDigestDate) {
-        return new ChatSettings(chatId, true, time, cities, currencies, sendRates, sendWeather, lastDigestDate);
+        return new ChatSettings(chatId, true, time, cities, currencies, sendRates, sendWeather, lastDigestDate, true);
     }
 }
