@@ -11,7 +11,11 @@ import com.zagvladimir.fraerish.story.StoryScore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.annotation.DirtiesContext;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -21,14 +25,19 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DirtiesContext
+@Testcontainers
 @SpringBootTest(properties = {
         "bot.token=test-token",
         "bot.name=TestBot",
         "bot.polling-enabled=false",
         "integration.open-weather.api-key=test",
-        "spring.datasource.url=jdbc:h2:mem:fraerish;DB_CLOSE_DELAY=-1"
+        "POSTGRES_PASSWORD=unused"
 })
 class FraerishBotApplicationTest {
+
+    @Container
+    @ServiceConnection
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17.12-alpine");
 
     private static final LocalDate TODAY = LocalDate.of(2026, 11, 16);
 

@@ -16,11 +16,9 @@ FROM eclipse-temurin:21-jre-noble
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --uid 10001 bot && mkdir /data && chown bot /data
+    && useradd --system --uid 10001 bot
 COPY --from=yt-dlp /yt-dlp /usr/local/bin/yt-dlp
 WORKDIR /app
 COPY --from=build /build/target/fraerish-bot.jar app.jar
 USER bot
-ENV BOT_DATA_DIR=/data
-VOLUME /data
 ENTRYPOINT ["java", "-Duser.timezone=Europe/Minsk", "-jar", "app.jar"]

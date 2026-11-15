@@ -56,18 +56,20 @@ Telegram-бот: погода с прогнозом на ближайшие ча
 telegram/   long polling, отправка ответов и меню, проверка админов, разбор апдейтов
 command/    контракт команд, разбор команд и списков
 settings/   /start, /settings, /stop, меню и кнопки настроек, права доступа
-digest/     настройки чатов (H2), сборка сводки и планировщик
+digest/     настройки чатов, сборка сводки и планировщик
 weather/    /w, клиент OpenWeather, прогноз на ближайшие часы
 exchange/   /exchange, клиенты НБРБ и Binance, форматирование курсов
 image/      /g, SearXNG, скачивание и проверка картинок
 layout/     /c
 ```
 
-Данные — файл H2 в `${BOT_DATA_DIR}` (в Docker — volume `bot-data`); схема создаётся и дополняется при старте из `schema.sql`.
+Данные — PostgreSQL 17 (контейнер `postgres` в compose, volume `pg-data`, наружу порт не открыт); схема создаётся и дополняется при старте из `schema.sql`.
+
+Бэкап: `scripts/backup-db.sh` делает `pg_dump` в `/opt/fraerish-bot-backup/postgres` и хранит 14 дней; на сервере запускается cron-ом раз в сутки. Восстановление: `gunzip -c файл.sql.gz | docker compose exec -T postgres psql -U fraerish -d fraerish`.
 
 ## Сборка и тесты
 
-Нужен JDK 21 и Maven 3.9:
+Нужен JDK 21, Maven 3.9 и Docker (интеграционный тест поднимает Postgres через Testcontainers):
 
 ```
 mvn verify
@@ -89,5 +91,6 @@ docker compose logs -f bot
 | `BOT_NAME` | username бота без `@` |
 | `OPEN_API_TOKEN` | ключ OpenWeather |
 | `SEARXNG_SECRET` | случайная строка, например `openssl rand -hex 32` |
+| `POSTGRES_PASSWORD` | пароль базы, например `openssl rand -hex 24` |
 
 SearXNG наружу не публикуется: бот ходит к нему по внутренней сети compose. Входящие порты не нужны — бот работает через long polling.

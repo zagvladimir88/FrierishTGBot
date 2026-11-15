@@ -4,9 +4,9 @@ spring:
   main:
     banner-mode: off
   datasource:
-    url: jdbc:h2:file:${BOT_DATA_DIR:./data}/fraerish-bot
-    username: sa
-    password: ""
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:fraerish}
+    username: ${POSTGRES_USER:fraerish}
+    password: ${POSTGRES_PASSWORD}
   sql:
     init:
       mode: always

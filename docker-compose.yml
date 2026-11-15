@@ -11,10 +11,28 @@ services:
     env_file: .env
     environment:
       SEARXNG_URL: http://searxng:8080
-    volumes:
-      - bot-data:/data
+      POSTGRES_HOST: postgres
     depends_on:
-      - searxng
+      searxng:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  postgres:
+    image: postgres:17.12-alpine
+    environment:
+      POSTGRES_DB: fraerish
+      POSTGRES_USER: fraerish
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraerish -d fraerish"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     restart: unless-stopped
     logging: *logging
 
@@ -28,4 +46,4 @@ services:
     logging: *logging
 
 volumes:
-  bot-data:
+  pg-data:
