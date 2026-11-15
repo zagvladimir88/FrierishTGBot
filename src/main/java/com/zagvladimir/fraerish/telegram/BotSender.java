@@ -13,12 +13,15 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class BotSender {
+
+    static final String PHOTOS_REJECTED = "Не получилось отправить картинки, попробуйте другой запрос";
 
     private static final int FORBIDDEN = 403;
     private static final int MAX_MEDIA_GROUP_SIZE = 10;
@@ -29,7 +32,7 @@ public class BotSender {
         try {
             switch (reply) {
                 case BotReply.Text text -> sendText(chatId, text.text());
-                case BotReply.Photos photos -> sendPhotos(chatId, photos.urls());
+                case BotReply.Photos photos -> sendPhotos(chatId, photos.photos());
             }
             return SendResult.SENT;
         } catch (TelegramApiRequestException e) {
@@ -49,20 +52,48 @@ public class BotSender {
         telegramClient.execute(SendMessage.builder().chatId(chatId).text(text).build());
     }
 
-    private void sendPhotos(long chatId, List<String> urls) throws TelegramApiException {
+    private void sendPhotos(long chatId, List<BotReply.Photo> photos) throws TelegramApiException {
+        if (photos.size() == 1) {
+            sendOneByOne(chatId, photos);
+            return;
+        }
         try {
-            if (urls.size() == 1) {
-                telegramClient.execute(SendPhoto.builder().chatId(chatId).photo(new InputFile(urls.getFirst())).build());
-            } else {
-                List<InputMediaPhoto> medias = urls.stream().limit(MAX_MEDIA_GROUP_SIZE).map(InputMediaPhoto::new).toList();
-                telegramClient.execute(SendMediaGroup.builder().chatId(chatId).medias(medias).build());
-            }
+            sendAlbum(chatId, photos);
         } catch (TelegramApiRequestException e) {
             if (isForbidden(e)) {
                 throw e;
             }
-            log.warn("Telegram could not attach images for chat {}, sending links: {}", chatId, e.getMessage());
-            sendText(chatId, String.join("\n", urls));
+            log.warn("Telegram rejected the album for chat {}, sending photos one by one: {}", chatId, e.getMessage());
+            sendOneByOne(chatId, photos);
+        }
+    }
+
+    private void sendAlbum(long chatId, List<BotReply.Photo> photos) throws TelegramApiException {
+        List<InputMediaPhoto> medias = photos.stream()
+                .limit(MAX_MEDIA_GROUP_SIZE)
+                .map(photo -> new InputMediaPhoto(new ByteArrayInputStream(photo.content()), photo.fileName()))
+                .toList();
+        telegramClient.execute(SendMediaGroup.builder().chatId(chatId).medias(medias).build());
+    }
+
+    private void sendOneByOne(long chatId, List<BotReply.Photo> photos) throws TelegramApiException {
+        int sent = 0;
+        for (BotReply.Photo photo : photos) {
+            try {
+                telegramClient.execute(SendPhoto.builder()
+                        .chatId(chatId)
+                        .photo(new InputFile(new ByteArrayInputStream(photo.content()), photo.fileName()))
+                        .build());
+                sent++;
+            } catch (TelegramApiRequestException e) {
+                if (isForbidden(e)) {
+                    throw e;
+                }
+                log.warn("Telegram rejected photo {} for chat {}: {}", photo.fileName(), chatId, e.getMessage());
+            }
+        }
+        if (sent == 0) {
+            sendText(chatId, PHOTOS_REJECTED);
         }
     }
 

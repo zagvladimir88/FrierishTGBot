@@ -13,6 +13,6 @@ record SearxngSearchResponse(List<Result> results) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record Result(@JsonProperty("img_src") String imageUrl) {
+    record Result(@JsonProperty("img_src") String imageUrl, @JsonProperty("thumbnail_src") String thumbnailUrl) {
     }
 }
