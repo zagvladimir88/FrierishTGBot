@@ -9,6 +9,8 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
+import org.telegram.telegrambots.meta.api.methods.polls.SendPoll;
+import org.telegram.telegrambots.meta.api.objects.polls.input.InputPollOption;
 import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
 import org.telegram.telegrambots.meta.api.methods.ActionType;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -49,6 +51,12 @@ public class BotSender {
                         .chatId(chatId)
                         .text(text.text())
                         .replyToMessageId(replyToMessageId)
+                        .build());
+                case BotReply.Poll poll -> telegramClient.execute(SendPoll.builder()
+                        .chatId(chatId)
+                        .question(poll.question())
+                        .options(poll.options().stream().map(InputPollOption::new).toList())
+                        .isAnonymous(false)
                         .build());
                 case BotReply.Video video -> telegramClient.execute(SendVideo.builder()
                         .chatId(chatId)

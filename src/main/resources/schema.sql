@@ -14,3 +14,13 @@ ALTER TABLE chats ADD COLUMN IF NOT EXISTS send_rates BOOLEAN NOT NULL DEFAULT T
 ALTER TABLE chats ADD COLUMN IF NOT EXISTS send_weather BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE chats ADD COLUMN IF NOT EXISTS last_digest_date DATE;
 ALTER TABLE chats ADD COLUMN IF NOT EXISTS weather_alerts BOOLEAN NOT NULL DEFAULT TRUE;
+
+CREATE TABLE IF NOT EXISTS message_stats
+(
+    chat_id   BIGINT       NOT NULL,
+    user_id   BIGINT       NOT NULL,
+    user_name VARCHAR(200) NOT NULL,
+    stat_day  DATE         NOT NULL,
+    messages  INT          NOT NULL,
+    PRIMARY KEY (chat_id, user_id, stat_day)
+);

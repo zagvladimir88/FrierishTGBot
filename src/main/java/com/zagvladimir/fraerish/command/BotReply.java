@@ -31,6 +31,13 @@ public sealed interface BotReply {
     record Video(String fileName, byte[] content, Integer width, Integer height, Integer duration) implements BotReply {
     }
 
+    record Poll(String question, List<String> options) implements BotReply {
+
+        public Poll {
+            options = List.copyOf(options);
+        }
+    }
+
     record Photo(String fileName, byte[] content) {
     }
 
