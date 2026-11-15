@@ -6,7 +6,6 @@ import com.zagvladimir.fraerish.command.CommandHandler;
 import com.zagvladimir.fraerish.command.CommandRequest;
 import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsController;
-import com.zagvladimir.fraerish.stats.ChatStats;
 import com.zagvladimir.fraerish.story.StoryService;
 import org.telegram.telegrambots.meta.api.objects.polls.PollAnswer;
 import com.zagvladimir.fraerish.video.VideoLinkListener;
@@ -27,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -46,7 +46,8 @@ class UpdateDispatcherTest {
     private final BotSender sender = mock(BotSender.class);
     private final SettingsController settingsController = mock(SettingsController.class);
     private final VideoLinkListener videoLinkListener = mock(VideoLinkListener.class);
-    private final ChatStats chatStats = mock(ChatStats.class);
+    private final MessageObserver failingObserver = mock(MessageObserver.class);
+    private final MessageObserver observer = mock(MessageObserver.class);
     private final StoryService storyService = mock(StoryService.class);
     private final UpdateDispatcher dispatcher = new UpdateDispatcher(
             List.of(
@@ -63,7 +64,7 @@ class UpdateDispatcherTest {
                     })),
             settingsController,
             videoLinkListener,
-            chatStats,
+            List.of(failingObserver, observer),
             storyService,
             sender,
             new BotProperties("token", BOT_NAME));
@@ -84,23 +85,19 @@ class UpdateDispatcherTest {
     }
 
     @Test
-    void countsGroupMessagesOfPeopleOnly() {
-        Message named = message(GROUP_ID, "supergroup", "привет");
-        User vladimir = new User(USER_ID, "Vladimir", false);
-        vladimir.setLastName("Z");
-        named.setFrom(vladimir);
-        Message fromBot = message(GROUP_ID, "group", "я бот");
-        fromBot.setFrom(bot("OtherBot"));
+    void showsNewGroupMessagesToObserversEvenWhenOneFails() {
+        Message groupMessage = message(GROUP_ID, "supergroup", "привет");
+        doThrow(new IllegalStateException("db is down")).when(failingObserver).observe(groupMessage);
 
-        dispatcher.consume(update(named));
-        dispatcher.consume(update(fromBot));
+        dispatcher.consume(update(groupMessage));
         dispatcher.consume(update(message(CHAT_ID, "private", "в личке")));
         Update edited = new Update();
         edited.setEditedMessage(message(GROUP_ID, "group", "исправил"));
         dispatcher.consume(edited);
 
-        verify(chatStats).countMessage(GROUP_ID, USER_ID, "Vladimir Z");
-        verifyNoMoreInteractions(chatStats);
+        verify(failingObserver).observe(groupMessage);
+        verify(observer).observe(groupMessage);
+        verifyNoMoreInteractions(observer);
     }
 
     @Test

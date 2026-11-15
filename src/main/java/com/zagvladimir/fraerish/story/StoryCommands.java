@@ -47,6 +47,13 @@ public class StoryCommands {
                         OPTION_SEPARATOR.split(request.args().strip())).filter(option -> !option.isBlank()).toList())));
     }
 
+    @Bean
+    @Order(24)
+    public CommandHandler storyPlayersHandler() {
+        return handler("/story_players", "Сколько игроков ждать в угадайке: /story_players 3 или авто",
+                request -> storyService.changePlayers(request.context(), request.args()));
+    }
+
     private static CommandHandler handler(String command, String description, Function<CommandRequest, BotReply> action) {
         return new CommandHandler() {
             @Override
