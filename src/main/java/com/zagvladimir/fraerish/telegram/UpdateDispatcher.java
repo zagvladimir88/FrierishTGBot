@@ -7,6 +7,7 @@ import com.zagvladimir.fraerish.command.CommandRequest;
 import com.zagvladimir.fraerish.command.ParsedCommand;
 import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsController;
+import com.zagvladimir.fraerish.video.VideoLinkListener;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
@@ -32,16 +33,18 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
 
     private final Map<String, CommandHandler> handlers;
     private final SettingsController settingsController;
+    private final VideoLinkListener videoLinkListener;
     private final BotSender sender;
     private final BotProperties properties;
 
     public UpdateDispatcher(List<CommandHandler> handlers, SettingsController settingsController,
-                            BotSender sender, BotProperties properties) {
+                            VideoLinkListener videoLinkListener, BotSender sender, BotProperties properties) {
         this.handlers = handlers.stream()
                 .flatMap(handler -> Stream.concat(Stream.of(handler.command()), handler.aliases().stream())
                         .map(name -> Map.entry(name, handler)))
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
         this.settingsController = settingsController;
+        this.videoLinkListener = videoLinkListener;
         this.sender = sender;
         this.properties = properties;
     }
@@ -71,6 +74,9 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
             return;
         }
         if (edited || message.getText().startsWith("/")) {
+            return;
+        }
+        if (videoLinkListener.onText(context.chatId(), message.getMessageId(), message.getText())) {
             return;
         }
         if (isReplyToBot(message)) {

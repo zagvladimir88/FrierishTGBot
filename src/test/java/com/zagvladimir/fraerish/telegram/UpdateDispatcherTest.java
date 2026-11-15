@@ -6,6 +6,7 @@ import com.zagvladimir.fraerish.command.CommandHandler;
 import com.zagvladimir.fraerish.command.CommandRequest;
 import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsController;
+import com.zagvladimir.fraerish.video.VideoLinkListener;
 import org.junit.jupiter.api.Test;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -40,6 +41,7 @@ class UpdateDispatcherTest {
     private final List<CommandRequest> layoutRequests = new ArrayList<>();
     private final BotSender sender = mock(BotSender.class);
     private final SettingsController settingsController = mock(SettingsController.class);
+    private final VideoLinkListener videoLinkListener = mock(VideoLinkListener.class);
     private final UpdateDispatcher dispatcher = new UpdateDispatcher(
             List.of(
                     new StubHandler("/w", List.of("/weather"), false, request -> {
@@ -54,8 +56,21 @@ class UpdateDispatcherTest {
                         throw new IllegalStateException("boom");
                     })),
             settingsController,
+            videoLinkListener,
             sender,
             new BotProperties("token", BOT_NAME));
+
+    @Test
+    void handsVideoLinksToVideoListenerInsteadOfSettings() {
+        Message link = message(GROUP_ID, "group", "https://www.youtube.com/shorts/ojsibtSeGfw");
+        link.setMessageId(15);
+        when(videoLinkListener.onText(GROUP_ID, 15, "https://www.youtube.com/shorts/ojsibtSeGfw")).thenReturn(true);
+
+        dispatcher.consume(update(link));
+
+        verify(videoLinkListener).onText(GROUP_ID, 15, "https://www.youtube.com/shorts/ojsibtSeGfw");
+        verifyNoInteractions(settingsController, sender);
+    }
 
     @Test
     void routesCommandWithChatContext() {

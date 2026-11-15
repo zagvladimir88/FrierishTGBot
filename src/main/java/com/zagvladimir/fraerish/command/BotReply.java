@@ -28,6 +28,9 @@ public sealed interface BotReply {
     record Prompt(String text) implements BotReply {
     }
 
+    record Video(String fileName, byte[] content, Integer width, Integer height, Integer duration) implements BotReply {
+    }
+
     record Photo(String fileName, byte[] content) {
     }
 
