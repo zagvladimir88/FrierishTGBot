@@ -111,6 +111,24 @@ public class StoryRepository {
                 .update();
     }
 
+    public Optional<Integer> players(long chatId) {
+        return jdbcClient.sql("SELECT players FROM story_players WHERE chat_id = :chatId")
+                .param("chatId", chatId)
+                .query(Integer.class)
+                .optional();
+    }
+
+    @Transactional
+    public void savePlayers(long chatId, Integer players) {
+        jdbcClient.sql("DELETE FROM story_players WHERE chat_id = :chatId").param("chatId", chatId).update();
+        if (players != null) {
+            jdbcClient.sql("INSERT INTO story_players (chat_id, players) VALUES (:chatId, :players)")
+                    .param("chatId", chatId)
+                    .param("players", players)
+                    .update();
+        }
+    }
+
     public int countVotes(long gameId) {
         return jdbcClient.sql("SELECT COUNT(*) FROM story_votes WHERE game_id = :gameId")
                 .param("gameId", gameId)

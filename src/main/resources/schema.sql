@@ -62,3 +62,16 @@ CREATE TABLE IF NOT EXISTS story_confirmations
     option_index INT    NOT NULL,
     PRIMARY KEY (game_id, user_id)
 );
+
+CREATE TABLE IF NOT EXISTS chat_bots
+(
+    chat_id BIGINT NOT NULL,
+    bot_id  BIGINT NOT NULL,
+    PRIMARY KEY (chat_id, bot_id)
+);
+
+CREATE TABLE IF NOT EXISTS story_players
+(
+    chat_id BIGINT PRIMARY KEY,
+    players INT NOT NULL
+);

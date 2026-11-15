@@ -48,11 +48,6 @@ public class ChatStats {
         return String.join("\n", lines);
     }
 
-    public int activeUsers(long chatId, int days) {
-        LocalDate to = today();
-        return repository.activeUsers(chatId, to.minusDays(days - 1L), to);
-    }
-
     LocalDate today() {
         return LocalDate.now(clock.withZone(digestProperties.zone()));
     }

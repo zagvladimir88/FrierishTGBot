@@ -4,7 +4,7 @@ import com.zagvladimir.fraerish.command.BotReply;
 import com.zagvladimir.fraerish.command.ChatContext;
 import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsAccess;
-import com.zagvladimir.fraerish.stats.ChatStats;
+import com.zagvladimir.fraerish.telegram.ChatMembers;
 import com.zagvladimir.fraerish.telegram.BotSender;
 import com.zagvladimir.fraerish.telegram.SentPoll;
 import org.junit.jupiter.api.Test;
@@ -36,8 +36,8 @@ class StoryServiceTest {
     private final StoryRepository repository = mock(StoryRepository.class);
     private final BotSender sender = mock(BotSender.class);
     private final SettingsAccess access = mock(SettingsAccess.class);
-    private final ChatStats chatStats = mock(ChatStats.class);
-    private final StoryService service = new StoryService(repository, sender, access, chatStats);
+    private final ChatMembers chatMembers = mock(ChatMembers.class);
+    private final StoryService service = new StoryService(repository, sender, access, chatMembers);
 
     @Test
     void startsGameWithAllVotedButtonUnderPoll() {
@@ -61,7 +61,8 @@ class StoryServiceTest {
     @Test
     void asksForTruthWhenEveryActiveMemberVoted() {
         when(repository.findByPollId("poll-1")).thenReturn(Optional.of(VOTING));
-        when(chatStats.activeUsers(GROUP, StoryService.ACTIVE_DAYS)).thenReturn(3);
+        when(repository.players(GROUP)).thenReturn(Optional.empty());
+        when(chatMembers.people(GROUP)).thenReturn(Optional.of(3));
         when(repository.countVotes(5L)).thenReturn(3);
         when(sender.sendTrackedMenu(eq(GROUP), any())).thenReturn(Optional.of(900));
 
@@ -79,12 +80,56 @@ class StoryServiceTest {
     @Test
     void keepsVotingUntilEveryoneVoted() {
         when(repository.findByPollId("poll-1")).thenReturn(Optional.of(VOTING));
-        when(chatStats.activeUsers(GROUP, StoryService.ACTIVE_DAYS)).thenReturn(3);
+        when(repository.players(GROUP)).thenReturn(Optional.empty());
+        when(chatMembers.people(GROUP)).thenReturn(Optional.of(3));
         when(repository.countVotes(5L)).thenReturn(2);
 
         service.vote("poll-1", 7L, "Игорь", List.of(SELFIE));
 
         verify(sender, never()).sendTrackedMenu(anyLong(), any());
+    }
+
+    @Test
+    void usesConfiguredNumberOfPlayersInsteadOfMemberCount() {
+        when(repository.findByPollId("poll-1")).thenReturn(Optional.of(VOTING));
+        when(repository.players(GROUP)).thenReturn(Optional.of(2));
+        when(repository.countVotes(5L)).thenReturn(2);
+        when(sender.sendTrackedMenu(eq(GROUP), any())).thenReturn(Optional.of(900));
+
+        service.vote("poll-1", 7L, "Игорь", List.of(SELFIE));
+
+        verify(repository).startConfirmation(5L, 900, 2);
+        verify(chatMembers, never()).people(anyLong());
+    }
+
+    @Test
+    void waitsForButtonWhenMembersCannotBeCounted() {
+        when(repository.findByPollId("poll-1")).thenReturn(Optional.of(VOTING));
+        when(repository.players(GROUP)).thenReturn(Optional.empty());
+        when(chatMembers.people(GROUP)).thenReturn(Optional.empty());
+        when(repository.countVotes(5L)).thenReturn(5);
+
+        service.vote("poll-1", 7L, "Игорь", List.of(SELFIE));
+
+        verify(sender, never()).sendTrackedMenu(anyLong(), any());
+    }
+
+    @Test
+    void adminsSetOrResetNumberOfPlayers() {
+        ChatContext admin = new ChatContext(GROUP, 1L, true, false);
+        when(access.canConfigure(admin)).thenReturn(true);
+        when(access.canConfigure(IGOR)).thenReturn(false);
+        when(chatMembers.people(GROUP)).thenReturn(Optional.of(3));
+
+        assertThat(service.changePlayers(IGOR, "3")).isEqualTo(BotReply.text("Число игроков меняют только админы группы"));
+        assertThat(service.changePlayers(admin, "3")).isEqualTo(BotReply.text("Угадайка ждёт голосов от 3 игроков"));
+        verify(repository).savePlayers(GROUP, 3);
+        assertThat(service.changePlayers(admin, "авто"))
+                .isEqualTo(BotReply.text("Считаю игроков сам: участники группы без ботов — сейчас 3"));
+        verify(repository).savePlayers(GROUP, null);
+        assertThat(((BotReply.Text) service.changePlayers(admin, "много")).text()).startsWith("Напишите число игроков");
+        assertThat(service.changePlayers(admin, "0")).isEqualTo(BotReply.text("Считаю игроков сам: участники группы без ботов — сейчас 3"));
+        assertThat(service.changePlayers(admin, "500")).isEqualTo(BotReply.text("Игроков может быть от 1 до 100"));
     }
 
     @Test

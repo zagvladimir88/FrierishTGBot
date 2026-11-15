@@ -7,7 +7,6 @@ import com.zagvladimir.fraerish.command.CommandRequest;
 import com.zagvladimir.fraerish.command.ParsedCommand;
 import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsController;
-import com.zagvladimir.fraerish.stats.ChatStats;
 import com.zagvladimir.fraerish.story.StoryService;
 import org.telegram.telegrambots.meta.api.objects.polls.PollAnswer;
 import com.zagvladimir.fraerish.video.VideoLinkListener;
@@ -38,13 +37,13 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
     private final Map<String, CommandHandler> handlers;
     private final SettingsController settingsController;
     private final VideoLinkListener videoLinkListener;
-    private final ChatStats chatStats;
+    private final List<MessageObserver> observers;
     private final StoryService storyService;
     private final BotSender sender;
     private final BotProperties properties;
 
     public UpdateDispatcher(List<CommandHandler> handlers, SettingsController settingsController,
-                            VideoLinkListener videoLinkListener, ChatStats chatStats, StoryService storyService,
+                            VideoLinkListener videoLinkListener, List<MessageObserver> observers, StoryService storyService,
                             BotSender sender, BotProperties properties) {
         this.handlers = handlers.stream()
                 .flatMap(handler -> Stream.concat(Stream.of(handler.command()), handler.aliases().stream())
@@ -52,7 +51,7 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
         this.settingsController = settingsController;
         this.videoLinkListener = videoLinkListener;
-        this.chatStats = chatStats;
+        this.observers = List.copyOf(observers);
         this.storyService = storyService;
         this.sender = sender;
         this.properties = properties;
@@ -84,11 +83,11 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
     }
 
     private void onMessage(Message message, boolean edited) {
+        if (!edited && isGroup(message.getChat())) {
+            notifyObservers(message);
+        }
         if (!edited && onMembershipChange(message)) {
             return;
-        }
-        if (!edited) {
-            countMessage(message);
         }
         if (!message.hasText()) {
             return;
@@ -112,12 +111,14 @@ public class UpdateDispatcher implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void countMessage(Message message) {
-        User author = message.getFrom();
-        if (author == null || Boolean.TRUE.equals(author.getIsBot()) || !isGroup(message.getChat())) {
-            return;
+    private void notifyObservers(Message message) {
+        for (MessageObserver observer : observers) {
+            try {
+                observer.observe(message);
+            } catch (RuntimeException e) {
+                log.error("{} failed for message in chat {}", observer.getClass().getSimpleName(), message.getChatId(), e);
+            }
         }
-        chatStats.countMessage(message.getChatId(), author.getId(), Users.displayName(author));
     }
 
     private boolean onMembershipChange(Message message) {

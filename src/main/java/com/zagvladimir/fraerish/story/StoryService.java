@@ -5,7 +5,7 @@ import com.zagvladimir.fraerish.command.BotReply.Button;
 import com.zagvladimir.fraerish.command.ChatContext;
 import com.zagvladimir.fraerish.settings.CallbackOutcome;
 import com.zagvladimir.fraerish.settings.SettingsAccess;
-import com.zagvladimir.fraerish.stats.ChatStats;
+import com.zagvladimir.fraerish.telegram.ChatMembers;
 import com.zagvladimir.fraerish.telegram.BotSender;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,14 +27,14 @@ public class StoryService {
     static final String CONFIRM = "st:c:";
     static final int MAX_OPTIONS = 12;
     static final int TOP_SIZE = 10;
-    static final int ACTIVE_DAYS = 30;
+    static final int MAX_PLAYERS = 100;
     private static final int CONFIRM_BUTTONS_PER_ROW = 2;
     private static final List<String> MEDALS = List.of("🥇", "🥈", "🥉");
 
     private final StoryRepository repository;
     private final BotSender botSender;
     private final SettingsAccess settingsAccess;
-    private final ChatStats chatStats;
+    private final ChatMembers chatMembers;
 
     public BotReply start(long chatId) {
         if (repository.findOpenGame(chatId).isPresent()) {
@@ -57,7 +57,7 @@ public class StoryService {
                 return;
             }
             repository.saveVote(game.id(), userId, userName, optionIds.getFirst());
-            int expected = game.chatId() > 0 ? 1 : chatStats.activeUsers(game.chatId(), ACTIVE_DAYS);
+            int expected = expectedVoters(game.chatId());
             if (expected > 0 && repository.countVotes(game.id()) >= expected) {
                 beginConfirmation(game);
             }
@@ -110,6 +110,37 @@ public class StoryService {
             lines.add("%s %s — %d из %d".formatted(place, score.name(), score.correct(), score.played()));
         }
         return BotReply.text(String.join("\n", lines));
+    }
+
+    public BotReply changePlayers(ChatContext context, String value) {
+        if (!settingsAccess.canConfigure(context)) {
+            return BotReply.text("Число игроков меняют только админы группы");
+        }
+        String text = value.strip().toLowerCase(Locale.ROOT);
+        if (text.isEmpty() || text.equals("0") || text.equals("авто") || text.equals("auto")) {
+            repository.savePlayers(context.chatId(), null);
+            return BotReply.text(chatMembers.people(context.chatId())
+                    .map(people -> "Считаю игроков сам: участники группы без ботов — сейчас %d".formatted(people))
+                    .orElse("Считаю игроков сам, но Telegram сейчас не отдал число участников"));
+        }
+        int players;
+        try {
+            players = Integer.parseInt(text);
+        } catch (NumberFormatException e) {
+            return BotReply.text("Напишите число игроков: /story_players 3 (или /story_players авто)");
+        }
+        if (players < 1 || players > MAX_PLAYERS) {
+            return BotReply.text("Игроков может быть от 1 до %d".formatted(MAX_PLAYERS));
+        }
+        repository.savePlayers(context.chatId(), players);
+        return BotReply.text("Угадайка ждёт голосов от %d %s".formatted(players, players == 1 ? "игрока" : "игроков"));
+    }
+
+    private int expectedVoters(long chatId) {
+        if (chatId > 0) {
+            return 1;
+        }
+        return repository.players(chatId).or(() -> chatMembers.people(chatId)).orElse(0);
     }
 
     public BotReply changeOptions(ChatContext context, List<String> options) {

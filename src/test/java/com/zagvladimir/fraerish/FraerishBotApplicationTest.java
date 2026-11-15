@@ -8,6 +8,7 @@ import com.zagvladimir.fraerish.stats.UserActivity;
 import com.zagvladimir.fraerish.story.StoryGame;
 import com.zagvladimir.fraerish.story.StoryRepository;
 import com.zagvladimir.fraerish.story.StoryScore;
+import com.zagvladimir.fraerish.telegram.KnownBotsRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -49,12 +50,14 @@ class FraerishBotApplicationTest {
     private MessageStatsRepository messageStatsRepository;
     @Autowired
     private StoryRepository storyRepository;
+    @Autowired
+    private KnownBotsRepository knownBotsRepository;
 
     @Test
     void registersEveryCommandHandler() {
         assertThat(handlers)
                 .extracting(CommandHandler::command)
-                .containsExactly("/start", "/w", "/e", "/g", "/c", "/pick", "/poll", "/top", "/story", "/answer", "/story_top", "/story_options", "/s", "/stop");
+                .containsExactly("/start", "/w", "/e", "/g", "/c", "/pick", "/poll", "/top", "/story", "/answer", "/story_top", "/story_options", "/story_players", "/s", "/stop");
     }
 
     @Test
@@ -123,8 +126,6 @@ class FraerishBotApplicationTest {
         messageStatsRepository.countMessage(group, 2L, "Игорь", TODAY);
         messageStatsRepository.countMessage(group, 2L, "Игорь", TODAY);
         messageStatsRepository.countMessage(group, 3L, "Старый", TODAY.minusDays(10));
-        assertThat(messageStatsRepository.activeUsers(group, TODAY.minusDays(29), TODAY)).isEqualTo(3);
-        assertThat(messageStatsRepository.activeUsers(group, TODAY.minusDays(6), TODAY)).isEqualTo(2);
 
         assertThat(messageStatsRepository.top(group, TODAY.minusDays(6), TODAY, 10))
                 .containsExactly(new UserActivity("Игорь", 3), new UserActivity("Vladimir Z", 2));
@@ -178,6 +179,23 @@ class FraerishBotApplicationTest {
         storyRepository.saveOptions(group, List.of("Кот", "Пёс"));
         storyRepository.saveOptions(group, List.of("Кот", "Пёс", "Рыба"));
         assertThat(storyRepository.options(group)).contains(List.of("Кот", "Пёс", "Рыба"));
+    }
+
+    @Test
+    void remembersBotsAndStoryPlayersPerChat() {
+        long group = -800L;
+        knownBotsRepository.remember(group, 500L);
+        knownBotsRepository.remember(group, 500L);
+        knownBotsRepository.remember(group, 501L);
+        knownBotsRepository.forget(group, 501L);
+        assertThat(knownBotsRepository.count(group)).isEqualTo(1);
+
+        assertThat(storyRepository.players(group)).isEmpty();
+        storyRepository.savePlayers(group, 3);
+        storyRepository.savePlayers(group, 4);
+        assertThat(storyRepository.players(group)).contains(4);
+        storyRepository.savePlayers(group, null);
+        assertThat(storyRepository.players(group)).isEmpty();
     }
 
     private void enabledAt(long chatId, LocalTime time) {
