@@ -66,6 +66,17 @@ class UpdateDispatcherTest {
     }
 
     @Test
+    void passesTextOfRepliedMessageToCommand() {
+        Message original = message(GROUP_ID, "group", "asdf");
+        Message command = message(GROUP_ID, "group", "/c@FraerishBot");
+        command.setReplyToMessage(original);
+
+        dispatcher.consume(update(command));
+
+        assertThat(layoutRequests).extracting(CommandRequest::repliedText).containsExactly("asdf");
+    }
+
+    @Test
     void marksGroupCommandsAndAnonymousAdmins() {
         Message fromAnonymousAdmin = message(GROUP_ID, "supergroup", "/w@FraerishBot Минск");
         fromAnonymousAdmin.setSenderChat(new Chat(GROUP_ID, "supergroup"));

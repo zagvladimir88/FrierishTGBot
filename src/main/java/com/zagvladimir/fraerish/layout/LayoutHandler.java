@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class LayoutHandler implements CommandHandler {
 
-    static final String USAGE = "Напишите текст после команды: /c ghbdtn";
+    static final String USAGE = "Напишите текст после команды (/c ghbdtn) или ответьте командой /c на сообщение, набранное не в той раскладке";
 
     @Override
     public String command() {
@@ -19,7 +19,7 @@ public class LayoutHandler implements CommandHandler {
 
     @Override
     public String description() {
-        return "Исправить раскладку: /c ghbdtn";
+        return "Исправить раскладку: /c ghbdtn или ответом на сообщение";
     }
 
     @Override
@@ -29,6 +29,9 @@ public class LayoutHandler implements CommandHandler {
 
     @Override
     public BotReply handle(CommandRequest request) {
-        return BotReply.text(request.hasArgs() ? KeyboardLayoutConverter.toCyrillic(request.args()) : USAGE);
+        if (request.hasArgs()) {
+            return BotReply.text(KeyboardLayoutConverter.toCyrillic(request.args()));
+        }
+        return BotReply.text(request.replied().map(KeyboardLayoutConverter::toCyrillic).orElse(USAGE));
     }
 }
