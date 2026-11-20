@@ -292,6 +292,21 @@ class StoryServiceTest {
     }
 
     @Test
+    void adminAnswerDuringConfirmationRepliesWithResult() {
+        ChatContext admin = new ChatContext(GROUP, 1L, true, false);
+        when(access.canConfigure(admin)).thenReturn(true);
+        when(repository.findOpenGame(GROUP)).thenReturn(Optional.of(CONFIRMING_THREE));
+        when(repository.votersFor(5L, 5)).thenReturn(List.of());
+        when(repository.confirmationCounts(5L)).thenReturn(Map.of(5, 1L, 1, 1L));
+        String result = "✅ В сторис: Рилс (так ответили 1 из 3)\n😅 Никто не угадал";
+
+        assertThat(service.answer(admin, "рилс")).isEqualTo(BotReply.text(result));
+
+        verify(repository).closeGame(5L, 5);
+        assertThat(editedMenu().text()).isEqualTo(result);
+    }
+
+    @Test
     void showsLeaderboardAndLetsAdminsChangeOptions() {
         when(repository.leaderboard(GROUP, StoryService.TOP_SIZE)).thenReturn(List.of(new StoryScore("Игорь", 5, 7), new StoryScore("Аня", 4, 7)));
         when(access.canConfigure(IGOR)).thenReturn(true);

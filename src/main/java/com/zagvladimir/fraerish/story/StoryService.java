@@ -232,7 +232,7 @@ public class StoryService {
         String result = "✅ В сторис: %s (так ответили %d из %d)\n%s"
                 .formatted(game.options().get(index), confirmed, game.votersSnapshot(), guessed);
         botSender.editMenu(game.chatId(), game.confirmMessageId(), new BotReply.Menu(result, List.of()));
-        return BotReply.none();
+        return BotReply.text(result);
     }
 
     private static BotReply.Menu confirmationMenu(List<String> options, long answered, int voters) {
